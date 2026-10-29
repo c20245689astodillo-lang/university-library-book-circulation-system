@@ -17,9 +17,14 @@ class StoreStudentRequest extends FormRequest
     {
         $email = $this->input('student_email');
 
+
+        
+        // ======================= THIS ONE ALSO  =================
         if (is_string($email)) {
             $this->merge(['student_email' => Str::lower(trim($email))]);
         }
+
+        
     }
 
     public function rules(): array
