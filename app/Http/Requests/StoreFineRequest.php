@@ -9,7 +9,7 @@ class StoreFineRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->user() !== null; // what do you mean by this? IT NEED TO BE AUTHENTICATED OR JUST TO CHECK IF THE USER IS NULL? IF THE USER IS NULL JUST GO BACK TO THE DEFAULT ONLY WHICH IS TRUE
     }
 
     public function rules(): array
