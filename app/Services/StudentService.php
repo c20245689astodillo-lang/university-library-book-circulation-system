@@ -96,6 +96,7 @@ class StudentService
             }
         }
 
+        //============== USE  FILTER VALDIATE EMAIL TO CHECK SANG VALIDITY KA EMAIL =================
         if (isset($data['student_email'])) {
             $data['student_email'] = Str::lower($data['student_email']);
         }
