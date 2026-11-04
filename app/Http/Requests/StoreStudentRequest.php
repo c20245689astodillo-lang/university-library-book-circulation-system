@@ -32,7 +32,10 @@ class StoreStudentRequest extends FormRequest
         return [
             'student_number' => ['required', 'string', 'max:20', Rule::unique('students', 'student_number')],
             'student_name' => ['required', 'string', 'max:255'],
-            'student_email' => ['required', 'email', 'max:255', Rule::unique('students', 'student_email')],
+            'student_email' => [
+                'required', Rule::email()->withNativeValidation(), 'max:255',
+                Rule::unique('students', 'student_email'),
+            ],
         ];
     }
 

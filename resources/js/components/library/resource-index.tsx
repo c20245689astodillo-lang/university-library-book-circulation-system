@@ -24,9 +24,10 @@ type ResourceIndexProps<T extends { id: number }> = {
     path: string;
     rows: Paginated<T>;
     columns: ResourceColumn<T>[];
+    canEdit?: (row: T) => boolean;
 };
 
-export default function ResourceIndex<T extends { id: number }>({ title, path, rows, columns }: ResourceIndexProps<T>) {
+export default function ResourceIndex<T extends { id: number }>({ title, path, rows, columns, canEdit }: ResourceIndexProps<T>) {
     const singularTitle = title.endsWith('s') ? title.slice(0, -1) : title;
     const { flash, errors = {} } = usePage<SharedData & { errors?: Record<string, string> }>().props;
 
@@ -69,7 +70,9 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                                         <td key={column.label} className="px-4 py-3">{column.render(row)}</td>
                                     ))}
                                     <td className="whitespace-nowrap px-4 py-3">
-                                        <Link className="underline underline-offset-4" href={`${path}/${row.id}/edit`}>Edit</Link>
+                                        {(!canEdit || canEdit(row)) && (
+                                            <Link className="underline underline-offset-4" href={`${path}/${row.id}/edit`}>Edit</Link>
+                                        )}
                                     </td>
                                 </tr>
                             )) : (

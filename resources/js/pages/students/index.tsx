@@ -8,7 +8,13 @@ type Student = {
     loans_count: number;
 };
 
-export default function StudentsIndex({ students }: { students: Paginated<Student> }) {
+export default function StudentsIndex({
+    students,
+    currentStudentId,
+}: {
+    students: Paginated<Student>;
+    currentStudentId: number | null;
+}) {
     const columns: ResourceColumn<Student>[] = [
         { label: 'Student number', render: (student) => student.student_number },
         { label: 'Name', render: (student) => student.student_name },
@@ -22,6 +28,7 @@ export default function StudentsIndex({ students }: { students: Paginated<Studen
             path="/students"
             rows={students}
             columns={columns}
+            canEdit={(student) => student.id === currentStudentId}
         />
     );
 }

@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateStudentRequest;
 use App\Models\Student;
 use App\Services\StudentService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -16,10 +17,11 @@ class StudentController extends Controller
     {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         return Inertia::render('students/index', [
             'students' => $this->service->index(),
+            'currentStudentId' => $request->user()->student?->id,
         ]);
     }
 
@@ -37,6 +39,8 @@ class StudentController extends Controller
 
     public function show(Student $student): Response
     {
+        $this->authorize('view', $student);
+
         return Inertia::render('students/show', [
             'student' => $this->service->show($student),
         ]);
@@ -44,6 +48,8 @@ class StudentController extends Controller
 
     public function edit(Student $student): Response
     {
+        $this->authorize('update', $student);
+
         return Inertia::render('students/form', ['student' => $student]);
     }
 
@@ -56,6 +62,7 @@ class StudentController extends Controller
 
     public function destroy(Student $student): RedirectResponse
     {
+        $this->authorize('delete', $student);
         $this->service->delete($student);
 
         return redirect()->route('students.index')->with('success', 'Student deleted.');

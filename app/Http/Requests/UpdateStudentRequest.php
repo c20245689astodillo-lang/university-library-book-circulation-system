@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Student;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -10,7 +11,10 @@ class UpdateStudentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        $student = $this->route('student');
+
+        return $student instanceof Student
+            && $this->user()?->can('update', $student) === true;
     }
 
     protected function prepareForValidation(): void
@@ -36,7 +40,7 @@ class UpdateStudentRequest extends FormRequest
             ],
             'student_name' => ['required', 'string', 'max:255'],
             'student_email' => [
-                'required', 'email', 'max:255',
+                'required', Rule::email()->withNativeValidation(), 'max:255',
                 Rule::unique('students', 'student_email')->ignore($student?->id),
             ],
         ];
