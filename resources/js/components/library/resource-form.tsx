@@ -14,8 +14,31 @@ export type FormField = {
     label: string;
     type?: 'text' | 'email' | 'date' | 'number' | 'select';
     required?: boolean;
+    disabled?: boolean;
+    pattern?: string;
+    title?: string;
+    maxLength?: number;
+    min?: string | number;
+    minFrom?: string;
+    max?: string | number;
+    maxDateOffset?: { source: string; days: number };
+    decimalPlaces?: number;
+    dateOffset?: { target: string; days: number };
+    emptyMessage?: string;
     options?: SelectOption[];
 };
+
+function addDays(date: string, days: number): string | undefined {
+    if (!date) return undefined;
+
+    const result = new Date(`${date}T00:00:00Z`);
+
+    if (Number.isNaN(result.getTime())) return undefined;
+
+    result.setUTCDate(result.getUTCDate() + days);
+
+    return result.toISOString().slice(0, 10);
+}
 
 type ResourceFormProps = {
     title: string;
@@ -28,6 +51,7 @@ type ResourceFormProps = {
 
 export default function ResourceForm({ title, path, action, method, values, fields }: ResourceFormProps) {
     const form = useForm<Record<string, FormValue>>(values);
+    const missingRequiredOptions = fields.some((field) => field.type === 'select' && field.required && !field.options?.length);
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -57,6 +81,7 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                         const rawValue = form.data[field.name] ?? '';
                         const value = field.type === 'date' ? String(rawValue).slice(0, 10) : rawValue;
                         const error = form.errors[field.name];
+                        const hasOptions = Boolean(field.options?.length);
 
                         return (
                             <div key={field.name} className="flex flex-col gap-1.5">
@@ -67,6 +92,7 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                         name={field.name}
                                         value={String(value)}
                                         required={field.required}
+                                        disabled={!hasOptions}
                                         onChange={(event) => {
                                             const next = event.target.value;
                                             const numericOption = field.options?.some((option) => typeof option.value === 'number' && String(option.value) === next);
@@ -74,7 +100,7 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                         }}
                                         className="rounded-md border bg-background px-3 py-2 text-sm"
                                     >
-                                        <option value="">Choose {field.label.toLowerCase()}</option>
+                                        <option value="">{hasOptions ? `Choose ${field.label.toLowerCase()}` : `No ${field.label.toLowerCase()} available`}</option>
                                         {field.options?.map((option) => (
                                             <option key={option.value} value={option.value}>{option.label}</option>
                                         ))}
@@ -86,14 +112,51 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                         type={field.type ?? 'text'}
                                         value={String(value)}
                                         required={field.required}
-                                        min={field.type === 'number' ? 0 : undefined}
-                                        step={field.name === 'fine_per_day' || field.name === 'calculated_fine' ? '0.01' : undefined}
+                                        disabled={field.disabled}
+                                        pattern={field.pattern}
+                                        title={field.title}
+                                        maxLength={field.maxLength}
+                                        min={field.minFrom ? String(form.data[field.minFrom] ?? '') : field.min ?? (field.type === 'number' ? 0 : undefined)}
+                                        max={field.maxDateOffset ? addDays(String(form.data[field.maxDateOffset.source] ?? ''), field.maxDateOffset.days) : field.max}
+                                        step={field.decimalPlaces !== undefined ? String(1 / 10 ** field.decimalPlaces) : field.name === 'fine_per_day' || field.name === 'calculated_fine' ? '0.01' : undefined}
                                         onChange={(event) => {
                                             const next = event.target.value;
+
+                                            if (field.type === 'date') {
+                                                form.setData(field.name, next);
+
+                                                if (field.dateOffset) {
+                                                    if (!next) {
+                                                        form.setData(field.dateOffset.target, '');
+                                                    } else {
+                                                        const offsetDate = new Date(`${next}T00:00:00Z`);
+                                                        offsetDate.setUTCDate(offsetDate.getUTCDate() + field.dateOffset.days);
+                                                        form.setData(field.dateOffset.target, offsetDate.toISOString().slice(0, 10));
+                                                    }
+                                                }
+
+                                                return;
+                                            }
+
+                                            if (field.decimalPlaces !== undefined) {
+                                                const decimalPattern = new RegExp(`^\\d*(?:\\.\\d{0,${field.decimalPlaces}})?$`);
+
+                                                if (!decimalPattern.test(next) || (field.max !== undefined && next !== '' && next !== '.' && Number(next) > Number(field.max))) {
+                                                    return;
+                                                }
+
+                                                form.setData(field.name, next);
+                                                return;
+                                            }
+
                                             form.setData(field.name, field.type === 'number' && next !== '' ? Number(next) : next);
                                         }}
                                         className="rounded-md border bg-background px-3 py-2 text-sm"
                                     />
+                                )}
+                                {field.disabled && <input type="hidden" name={field.name} value={String(value)} />}
+                                {field.type === 'select' && !hasOptions && (
+                                    <p className="text-muted-foreground text-sm">{field.emptyMessage ?? `No ${field.label.toLowerCase()} options are available.`}</p>
                                 )}
                                 {error && <p className="text-destructive text-sm">{error}</p>}
                             </div>
@@ -103,7 +166,7 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                     <div className="flex items-center gap-3">
                         <button
                             type="submit"
-                            disabled={form.processing}
+                            disabled={form.processing || missingRequiredOptions}
                             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
                         >
                             {form.processing ? 'Saving...' : 'Save'}

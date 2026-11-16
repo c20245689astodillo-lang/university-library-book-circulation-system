@@ -21,7 +21,7 @@ class StudentController extends Controller
     {
         return Inertia::render('students/index', [
             'students' => $this->service->index(),
-            'currentStudentId' => $request->user()->student?->id,
+            'currentStudentId' => $request->user()->libraryStudent()?->id,
         ]);
     }
 

@@ -31,6 +31,7 @@ class LoanService
     public function formOptions(): array
     {
         return [
+            'today' => Carbon::today()->toDateString(),
             'students' => Student::query()->orderBy('student_name')->get(['id', 'student_number', 'student_name']),
             'books' => Book::query()->orderBy('book_title')->get(['id', 'book_isbn', 'book_title']),
         ];
@@ -104,9 +105,10 @@ class LoanService
 
         if ((int) round((float) $unpaidTotal * 100) > self::UNPAID_FINE_LIMIT_CENTS) {
             throw ValidationException::withMessages([
-                'student_id' => 'This student cannot borrow while their unpaid fines exceed ₱500.',
+                'student_id' => 'This student cannot borrow while their unpaid fines exceed PHP 500.',
             ]);
         }
+
     }
 
     private function assertBookAvailable(int $bookId, ?Loan $except = null): void

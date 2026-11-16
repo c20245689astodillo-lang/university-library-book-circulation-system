@@ -10,7 +10,7 @@ type Book = {
 
 export default function BooksIndex({ books }: { books: Paginated<Book> }) {
     const columns: ResourceColumn<Book>[] = [
-        { label: 'ISBN', render: (book) => book.book_isbn },
+        { label: 'ISBN / Book code', render: (book) => book.book_isbn },
         { label: 'Title', render: (book) => book.book_title },
         { label: 'Author', render: (book) => book.author_name },
         { label: 'Publisher', render: (book) => book.publisher?.publisher_name ?? '—' },

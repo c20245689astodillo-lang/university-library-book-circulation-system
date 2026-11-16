@@ -16,8 +16,7 @@ export default function StudentsIndex({
     currentStudentId: number | null;
 }) {
     const columns: ResourceColumn<Student>[] = [
-        { label: 'Student number', render: (student) => student.student_number },
-        { label: 'Name', render: (student) => student.student_name },
+        { label: 'Student', render: (student) => `${student.student_name} (${student.student_number})` },
         { label: 'Email', render: (student) => student.student_email },
         { label: 'Loans', render: (student) => student.loans_count },
     ];

@@ -24,6 +24,6 @@ class StudentPolicy
 
     private function ownsStudentRecord(User $user, Student $student): bool
     {
-        return $user->student()->whereKey($student->getKey())->exists();
+        return $user->libraryStudent()?->is($student) ?? false;
     }
 }

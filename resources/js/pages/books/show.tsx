@@ -10,7 +10,7 @@ type Book = {
 
 export default function BookShow({ book }: { book: Book }) {
     const rows: DetailRow[] = [
-        { label: 'ISBN', value: book.book_isbn },
+        { label: 'ISBN / Book code', value: book.book_isbn },
         { label: 'Title', value: book.book_title },
         { label: 'Author', value: book.author_name },
         { label: 'Publisher', value: book.publisher?.publisher_name ?? '—' },

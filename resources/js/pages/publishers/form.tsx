@@ -7,7 +7,7 @@ export default function PublisherForm({ publisher }: { publisher?: Publisher }) 
     const path = '/publishers';
     const action = publisher ? `${path}/${publisher.id}` : path;
     const values: Record<string, FormValue> = { publisher_name: publisher?.publisher_name ?? '' };
-    const fields: FormField[] = [{ name: 'publisher_name', label: 'Publisher name', required: true }];
+    const fields: FormField[] = [{ name: 'publisher_name', label: 'Publisher name', required: true, maxLength: 255 }];
 
     return <ResourceForm title={editing ? 'Edit publisher' : 'Create publisher'} path={path} action={action} method={editing ? 'put' : 'post'} values={values} fields={fields} />;
 }

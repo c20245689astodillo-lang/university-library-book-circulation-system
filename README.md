@@ -1,4 +1,4 @@
-## INITIAL SCORE - 60/100
+
 
 # University Library Book Circulation System
 

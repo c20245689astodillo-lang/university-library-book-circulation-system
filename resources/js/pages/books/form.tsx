@@ -27,9 +27,9 @@ export default function BookForm({ book, publishers }: Props) {
     };
     const fields: FormField[] = [
         { name: 'publisher_id', label: 'Publisher', type: 'select', required: true, options: publishers.map((publisher) => ({ value: publisher.id, label: publisher.publisher_name })) },
-        { name: 'book_isbn', label: 'ISBN', required: true },
-        { name: 'book_title', label: 'Title', required: true },
-        { name: 'author_name', label: 'Author', required: true },
+        { name: 'book_isbn', label: 'ISBN or book code', required: true, maxLength: 20, pattern: '([0-9]{3}-[0-9]{4}|[0-9]+(-[0-9]+)*(-?[xX])?)', title: 'Use a code like 568-0012 or a valid ISBN-10/13.' },
+        { name: 'book_title', label: 'Title', required: true, maxLength: 255 },
+        { name: 'author_name', label: 'Author', required: true, maxLength: 255 },
     ];
 
     return <ResourceForm title={editing ? 'Edit book' : 'Create book'} path={path} action={action} method={editing ? 'put' : 'post'} values={values} fields={fields} />;

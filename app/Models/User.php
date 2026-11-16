@@ -18,6 +18,12 @@ class User extends Authenticatable
         return $this->hasOne(Student::class, 'student_email', 'email');
     }
 
+    public function libraryStudent(): ?Student
+    {
+        return $this->student()->first()
+            ?? Student::query()->where('student_number', 'USR-'.$this->getKey())->first();
+    }
+
     /**
      * The attributes that are mass assignable.
      *

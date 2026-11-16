@@ -18,5 +18,5 @@ export default function FinesIndex({ fines }: { fines: Paginated<Fine> }) {
         { label: 'Payment status', render: (fine) => fine.payment_status },
     ];
 
-    return <ResourceIndex title="Fines" path="/fines" rows={fines} columns={columns} />;
+    return <ResourceIndex title="Fines" path="/fines" rows={fines} columns={columns} canCreate={false} />;
 }

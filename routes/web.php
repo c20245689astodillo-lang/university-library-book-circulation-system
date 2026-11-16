@@ -21,7 +21,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('students', StudentController::class);
     Route::resource('publishers', PublisherController::class);
     Route::resource('loans', LoanController::class);
-    Route::resource('fines', FineController::class);
+    Route::resource('fines', FineController::class)->except(['create', 'store', 'destroy']);
 });
 
 require __DIR__.'/settings.php';

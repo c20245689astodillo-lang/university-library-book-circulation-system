@@ -24,10 +24,11 @@ type ResourceIndexProps<T extends { id: number }> = {
     path: string;
     rows: Paginated<T>;
     columns: ResourceColumn<T>[];
+    canCreate?: boolean;
     canEdit?: (row: T) => boolean;
 };
 
-export default function ResourceIndex<T extends { id: number }>({ title, path, rows, columns, canEdit }: ResourceIndexProps<T>) {
+export default function ResourceIndex<T extends { id: number }>({ title, path, rows, columns, canCreate = true, canEdit }: ResourceIndexProps<T>) {
     const singularTitle = title.endsWith('s') ? title.slice(0, -1) : title;
     const { flash, errors = {} } = usePage<SharedData & { errors?: Record<string, string> }>().props;
 
@@ -41,9 +42,11 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                         <h1 className="text-2xl font-semibold">{title}</h1>
                         <p className="text-muted-foreground mt-1 text-sm">Manage {title.toLowerCase()} in the library.</p>
                     </div>
-                    <Link href={`${path}/create`} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-                        Add {singularTitle}
-                    </Link>
+                    {canCreate && (
+                        <Link href={`${path}/create`} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                            Add {singularTitle}
+                        </Link>
+                    )}
                 </header>
 
                 {flash?.success && <p role="status" className="rounded-md border border-green-600/30 bg-green-600/10 px-4 py-3 text-sm">{flash.success}</p>}

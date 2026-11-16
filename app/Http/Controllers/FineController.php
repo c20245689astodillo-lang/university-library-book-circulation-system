@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreFineRequest;
 use App\Http\Requests\UpdateFineRequest;
 use App\Models\Fine;
 use App\Services\FineService;
@@ -23,20 +22,6 @@ class FineController extends Controller
         ]);
     }
 
-    public function create(): Response
-    {
-        return Inertia::render('fines/form', [
-            'loans' => $this->service->availableLoans(),
-        ]);
-    }
-
-    public function store(StoreFineRequest $request): RedirectResponse
-    {
-        $this->service->create($request->validated());
-
-        return redirect()->route('fines.index')->with('success', 'Fine added.');
-    }
-
     public function show(Fine $fine): Response
     {
         return Inertia::render('fines/show', [
@@ -48,7 +33,6 @@ class FineController extends Controller
     {
         return Inertia::render('fines/form', [
             'fine' => $fine,
-            'loans' => $this->service->availableLoans($fine),
         ]);
     }
 
@@ -57,12 +41,5 @@ class FineController extends Controller
         $this->service->update($fine, $request->validated());
 
         return redirect()->route('fines.index')->with('success', 'Fine updated.');
-    }
-
-    public function destroy(Fine $fine): RedirectResponse
-    {
-        $this->service->delete($fine);
-
-        return redirect()->route('fines.index')->with('success', 'Fine deleted.');
     }
 }
