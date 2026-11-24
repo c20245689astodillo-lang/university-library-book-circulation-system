@@ -7,6 +7,7 @@ use App\Http\Requests\UpdatePublisherRequest;
 use App\Models\Publisher;
 use App\Services\PublisherService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -16,10 +17,20 @@ class PublisherController extends Controller
     {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+        $search = $validated['search'] ?? null;
+
+        if (is_string($search)) {
+            $search = trim(strip_tags($search));
+        }
+
         return Inertia::render('publishers/index', [
-            'publishers' => $this->service->index(),
+            'publishers' => $this->service->paginate($search),
+            'filters' => ['search' => $search ?? ''],
         ]);
     }
 

@@ -20,6 +20,11 @@ class StoreBookRequest extends FormRequest
 
             if (is_string($value)) {
                 $normalized = trim(strip_tags($value));
+
+                if ($field === 'book_title') {
+                    $normalized = mb_convert_case($normalized, MB_CASE_TITLE, 'UTF-8');
+                }
+
                 $this->merge([$field => $field === 'book_isbn' ? strtoupper($normalized) : $normalized]);
             }
         }
@@ -34,7 +39,7 @@ class StoreBookRequest extends FormRequest
                 $this->isbnRule(),
                 Rule::unique('books', 'book_isbn'),
             ],
-            'book_title' => ['required', 'string', 'max:255', $this->bookTitleRule()],
+            'book_title' => ['required', 'string', 'max:255', $this->bookTitleRule(), $this->uniqueTitleRule()],
             'author_name' => ['required', 'string', 'max:255', $this->authorNameRule()],
         ];
     }
@@ -113,8 +118,8 @@ class StoreBookRequest extends FormRequest
                 return;
             }
 
-            if ($this->hasScrambledConsonantRun($value)) {
-                $fail('The author name contains an unusually long consonant sequence; check it for typing errors.');
+            if ($this->hasSuspiciousLetterSequence($value)) {
+                $fail('The author name contains an unusual letter sequence; check it for typing errors.');
             }
         };
     }
@@ -138,13 +143,30 @@ class StoreBookRequest extends FormRequest
                 return;
             }
 
-            if ($this->hasScrambledConsonantRun($value)) {
-                $fail('The title contains an unusually long consonant sequence; check it for typing errors.');
+            if ($this->hasSuspiciousLetterSequence($value)) {
+                $fail('The title contains an unusual letter sequence; check it for typing errors.');
             }
         };
     }
 
-    private function hasScrambledConsonantRun(string $value): bool
+    private function uniqueTitleRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_string($value)) {
+                return;
+            }
+
+            $exists = \App\Models\Book::query()
+                ->whereRaw('LOWER(book_title) = ?', [mb_strtolower($value, 'UTF-8')])
+                ->exists();
+
+            if ($exists) {
+                $fail('The title "'.$value.'" already exists. Enter a different title.');
+            }
+        };
+    }
+
+    private function hasSuspiciousLetterSequence(string $value): bool
     {
         $words = preg_split('~[^\p{L}\p{M}]+~u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
@@ -153,11 +175,13 @@ class StoreBookRequest extends FormRequest
                 continue;
             }
 
-            $consonants = preg_match('~[aeiou]~i', $word) === 1
-                ? '~[bcdfghjklmnpqrstvwxyz]{6,}~i'
-                : '~[bcdfghjklmnpqrstvwxz]{6,}~i';
+            $hasVowel = preg_match('~[aeiouy]~i', $word) === 1;
 
-            if (preg_match($consonants, $word) === 1) {
+            if (preg_match('~^[A-Za-z]{5,}$~', $word) === 1 && ! $hasVowel) {
+                return true;
+            }
+
+            if (preg_match('~[bcdfghjklmnpqrstvwxz]{6,}~i', $word) === 1) {
                 return true;
             }
         }

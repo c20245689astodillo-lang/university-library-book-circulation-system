@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Loan;
+
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,27 +18,32 @@ class UpdateLoanRequest extends FormRequest
 
     public function rules(): array
     {
-        $loan = $this->route('loan');
-        $originalIssueDate = $loan instanceof Loan ? $loan->getRawOriginal('issue_date') : null;
+
 
         return [
             'student_id' => ['required', 'integer', Rule::exists('students', 'id')],
             'book_id' => ['required', 'integer', Rule::exists('books', 'id')],
-            'issue_date' => ['required', 'date_format:Y-m-d', Rule::in([$originalIssueDate])],
+            'issue_date' => [
+                'required',
+                'date_format:Y-m-d',
+                'after_or_equal:today',
+                'before_or_equal:'.today()->addDays(5)->toDateString(),
+            ],
             'due_date' => [
                 'required',
                 'date_format:Y-m-d',
                 'after_or_equal:issue_date',
-                $this->withinFiveDaysOf(
-                    is_string($originalIssueDate) ? $originalIssueDate : $this->input('issue_date'),
-                    'The due date cannot be more than five days after the issue date.',
+                $this->withinDaysAfter(
+                    $this->input('issue_date'),
+                    14,
+                    'The due date cannot be more than 14 days after the issue date.',
                 ),
             ],
             'return_date' => [
                 'nullable',
                 'date_format:Y-m-d',
                 'after_or_equal:issue_date',
-                $this->withinFiveDaysOf($this->input('due_date'), 'The return date cannot be more than five days after the due date.'),
+                'date_equals:today',
             ],
             'fine_per_day' => ['sometimes', 'numeric', 'decimal:0,2', 'min:0', 'max:999999.99'],
         ];
@@ -53,20 +58,22 @@ class UpdateLoanRequest extends FormRequest
             'book_id.exists' => 'Choose a book that exists.',
             'issue_date.required' => 'Enter the issue date.',
             'issue_date.date_format' => 'Enter the issue date in YYYY-MM-DD format.',
-            'issue_date.in' => 'The issue date cannot be changed after the loan is created.',
+            'issue_date.after_or_equal' => 'The issue date cannot be in the past.',
+            'issue_date.before_or_equal' => 'Choose an issue date within the next five days.',
             'due_date.required' => 'Enter the due date.',
             'due_date.date_format' => 'Enter the due date in YYYY-MM-DD format.',
             'due_date.after_or_equal' => 'The due date cannot be before the issue date.',
             'return_date.date_format' => 'Enter the return date in YYYY-MM-DD format.',
             'return_date.after_or_equal' => 'The return date cannot be before the issue date.',
+            'return_date.date_equals' => 'The return date must be today.',
             'fine_per_day.decimal' => 'The daily fine can have no more than two decimal places.',
             'fine_per_day.min' => 'The daily fine cannot be negative.',
         ];
     }
 
-    private function withinFiveDaysOf(mixed $anchorDate, string $message): Closure
+    private function withinDaysAfter(mixed $anchorDate, int $days, string $message): Closure
     {
-        return function (string $attribute, mixed $value, Closure $fail) use ($anchorDate, $message): void {
+        return function (string $attribute, mixed $value, Closure $fail) use ($anchorDate, $days, $message): void {
             if (! is_string($anchorDate) || ! is_string($value)) {
                 return;
             }
@@ -78,7 +85,7 @@ class UpdateLoanRequest extends FormRequest
                 return;
             }
 
-            if ($anchor && $date && $date->greaterThan($anchor->addDays(5))) {
+            if ($anchor && $date && $date->greaterThan($anchor->addDays($days))) {
                 $fail($message);
             }
         };

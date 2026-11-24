@@ -84,29 +84,40 @@ class StoreStudentRequest extends FormRequest
 
                     [$localPart, $domain] = $emailParts;
 
-                    if (preg_match('~^[\p{L}\p{N}]+(?:[._+\-][\p{L}\p{N}]+)*$~u', $localPart) !== 1) {
-                        $fail('Use letters, numbers, periods, underscores, plus signs, or hyphens before @.');
+                    if ($domain !== 'gmail.com') {
+                        $fail('Use a Gmail address ending exactly in @gmail.com.');
 
                         return;
                     }
 
-                    if (preg_match('~^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$~i', $domain) !== 1) {
-                        $fail('Enter an email with a valid domain, such as example.com.');
+                    $tagSeparator = strpos($localPart, '+');
+                    $username = $tagSeparator === false ? $localPart : substr($localPart, 0, $tagSeparator);
+                    $tag = $tagSeparator === false ? null : substr($localPart, $tagSeparator + 1);
+
+                    if (strlen($username) < 6 || strlen($username) > 30) {
+                        $fail('A Gmail username must be 6 to 30 characters long.');
 
                         return;
                     }
 
-                    if (preg_match('~(\p{L})\1{4,}~iu', $localPart) === 1) {
-                        $fail('The email name cannot contain five or more repeated letters.');
+                    if (preg_match('~^[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*$~', $username) !== 1) {
+                        $fail('Use letters, numbers, and single periods in the Gmail username.');
 
                         return;
                     }
 
-                    if ($this->hasScrambledConsonantRun($localPart)) {
-                        $fail('The email name contains an unusual consonant sequence; check it for typing errors.');
+                    if (preg_match('~(.)\1{4,}~i', $username) === 1) {
+                        $fail('The Gmail username cannot repeat the same character five or more times in a row.');
+
+                        return;
+                    }
+
+                    if ($tag !== null && preg_match('~^[A-Za-z0-9._-]+$~', $tag) !== 1) {
+                        $fail('A Gmail +tag may contain letters, numbers, periods, underscores, or hyphens.');
                     }
                 },
                 Rule::unique('students', 'student_email'),
+                Rule::unique('users', 'email'),
             ],
         ];
     }
@@ -119,7 +130,7 @@ class StoreStudentRequest extends FormRequest
             'student_number.unique' => 'That student number is already in use.',
             'student_name.required' => 'Enter the student name.',
             'student_email.required' => 'Enter the student email.',
-            'student_email.email' => 'Enter a valid email address.',
+            'student_email.email' => 'Enter a valid Gmail address.',
             'student_email.unique' => 'That student email is already in use.',
         ];
     }

@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Fine;
+use App\Models\Loan;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class FineService
 {
@@ -16,13 +18,15 @@ class FineService
                 'loan.student:id,student_number,student_name',
                 'loan.book:id,book_isbn,book_title',
             ])
-            ->latest()
+            ->latest('created_at')
+            ->latest('id')
             ->paginate(10);
     }
 
     public function show(Fine $fine): Fine
     {
         return $fine->load([
+            'loan:id,student_id,book_id',
             'loan.student:id,student_number,student_name',
             'loan.book:id,book_isbn,book_title',
         ]);
@@ -32,7 +36,13 @@ class FineService
     {
         $data = $this->sanitize($data);
 
-        return $fine->update(['payment_status' => $data['payment_status']]);
+        return DB::transaction(function () use ($fine, $data): bool {
+            $loan = Loan::query()->whereKey($fine->loan_id)->lockForUpdate()->firstOrFail();
+            $loan->student()->lockForUpdate()->firstOrFail();
+            $lockedFine = Fine::query()->lockForUpdate()->findOrFail($fine->getKey());
+
+            return $lockedFine->update(['payment_status' => $data['payment_status']]);
+        });
     }
 
     private function sanitize(array $data): array

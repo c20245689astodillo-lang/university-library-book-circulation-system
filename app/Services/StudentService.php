@@ -11,13 +11,15 @@ use Illuminate\Validation\ValidationException;
 
 class StudentService
 {
+    private const INITIAL_PASSWORD = 'uni123';
+
     public function syncAccount(User $user): Student
     {
         $email = Str::lower(trim($user->email));
 
         return DB::transaction(function () use ($user, $email): Student {
             $student = Student::query()
-                ->whereRaw('LOWER(student_email) = ?', [$email])
+                ->where('student_email', $email)
                 ->first();
 
             if ($student) {
@@ -39,23 +41,63 @@ class StudentService
         return Student::query()
             ->select(['id', 'student_number', 'student_name', 'student_email'])
             ->withCount('loans')
-            ->latest()
+            ->latest('created_at')
+            ->latest('id')
             ->paginate(10);
     }
 
     public function create(array $data): Student
     {
-        return Student::create($this->sanitize($data));
+        $data = $this->sanitize($data);
+
+        return DB::transaction(function () use ($data): Student {
+            $student = Student::create($data);
+
+            User::create([
+                'name' => $student->student_name,
+                'email' => $student->student_email,
+                'password' => self::INITIAL_PASSWORD,
+            ]);
+
+            return $student;
+        });
     }
 
     public function show(Student $student): Student
     {
-        return $student->load(['loans.book', 'loans.fine']);
+        return $student->loadCount('loans');
     }
 
     public function update(Student $student, array $data): bool
     {
-        return $student->update($this->sanitize($data));
+        $password = $data['password'] ?? null;
+        unset($data['password']);
+        $data = $this->sanitize($data);
+
+        return DB::transaction(function () use ($student, $data, $password): bool {
+            $lockedStudent = Student::query()->lockForUpdate()->findOrFail($student->getKey());
+            $linkedUser = User::query()
+                ->where('email', $lockedStudent->student_email)
+                ->lockForUpdate()
+                ->first();
+
+            $updated = $lockedStudent->update($data);
+
+            if ($updated && $linkedUser) {
+                $accountChanges = [
+                    'name' => $lockedStudent->student_name,
+                    'email' => $lockedStudent->student_email,
+                ];
+
+                if (is_string($password) && $password !== '') {
+                    $accountChanges['password'] = $password;
+                }
+
+                $linkedUser->update($accountChanges);
+            }
+
+            return $updated;
+        });
     }
 
     public function hasLoans(Student $student): bool
@@ -65,13 +107,17 @@ class StudentService
 
     public function delete(Student $student): void
     {
-        if ($this->hasLoans($student)) {
-            throw ValidationException::withMessages([
-                'student' => 'This student cannot be deleted because they have loan records.',
-            ]);
-        }
+        DB::transaction(function () use ($student): void {
+            $lockedStudent = Student::query()->lockForUpdate()->findOrFail($student->getKey());
 
-        $student->delete();
+            if ($this->hasLoans($lockedStudent)) {
+                throw ValidationException::withMessages([
+                    'student' => 'This student cannot be deleted because they have loan records.',
+                ]);
+            }
+
+            $lockedStudent->delete();
+        });
     }
 
     private function availableAccountStudentNumber(int $userId): string
@@ -96,7 +142,7 @@ class StudentService
             }
         }
 
-        //============== USE  FILTER VALDIATE EMAIL TO CHECK SANG VALIDITY KA EMAIL =================
+        
         if (isset($data['student_email'])) {
             $data['student_email'] = Str::lower($data['student_email']);
         }

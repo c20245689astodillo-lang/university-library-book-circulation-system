@@ -34,7 +34,7 @@ class StudentController extends Controller
     {
         $this->service->create($request->validated());
 
-        return redirect()->route('students.index')->with('success', 'Student added.');
+        return redirect()->route('students.index')->with('success', 'Student and sign-in account added.');
     }
 
     public function show(Student $student): Response

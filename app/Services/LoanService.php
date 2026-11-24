@@ -24,7 +24,9 @@ class LoanService
                 'book:id,book_isbn,book_title',
                 'fine:id,loan_id,calculated_fine,payment_status',
             ])
+            ->orderByRaw('CASE WHEN issue_date = ? THEN 0 ELSE 1 END', [Carbon::today()->toDateString()])
             ->latest('issue_date')
+            ->latest('id')
             ->paginate(10);
     }
 
@@ -44,9 +46,12 @@ class LoanService
         return DB::transaction(function () use ($data): Loan {
             $studentId = (int) $data['student_id'];
             $this->assertStudentCanBorrow($studentId);
+            $bookId = (int) $data['book_id'];
 
             if (empty($data['return_date'] ?? null)) {
-                $this->assertBookAvailable((int) $data['book_id']);
+                $this->assertBookAvailable($bookId);
+            } else {
+                $this->lockBook($bookId);
             }
 
             $loan = Loan::create($data);
@@ -58,7 +63,12 @@ class LoanService
 
     public function show(Loan $loan): Loan
     {
-        return $loan->load(['student', 'book.publisher', 'fine']);
+        return $loan->load([
+            'student:id,student_number,student_name',
+            'book:id,publisher_id,book_isbn,book_title',
+            'book.publisher:id,publisher_name',
+            'fine:id,loan_id,calculated_fine,payment_status',
+        ]);
     }
 
     public function update(Loan $loan, array $data): bool
@@ -66,6 +76,7 @@ class LoanService
         $data = $this->sanitize($data);
 
         return DB::transaction(function () use ($loan, $data): bool {
+            $loan = Loan::query()->lockForUpdate()->findOrFail($loan->getKey());
             $studentId = (int) ($data['student_id'] ?? $loan->student_id);
             $bookId = (int) ($data['book_id'] ?? $loan->book_id);
             $returnDate = array_key_exists('return_date', $data) ? $data['return_date'] : $loan->return_date;
@@ -82,7 +93,7 @@ class LoanService
             }
 
             $loan->update($data);
-            $loan->refresh();
+            
             $this->synchronizeCalculatedFine($loan);
 
             return true;
@@ -91,7 +102,9 @@ class LoanService
 
     public function delete(Loan $loan): void
     {
-        $loan->delete();
+        DB::transaction(function () use ($loan): void {
+            Loan::query()->whereKey($loan->getKey())->lockForUpdate()->firstOrFail()->delete();
+        });
     }
 
     private function assertStudentCanBorrow(int $studentId): void
@@ -99,9 +112,10 @@ class LoanService
         Student::query()->whereKey($studentId)->lockForUpdate()->firstOrFail();
 
         $unpaidTotal = Fine::query()
-            ->where('payment_status', 'unpaid')
-            ->whereHas('loan', fn ($query) => $query->where('student_id', $studentId))
-            ->sum('calculated_fine');
+            ->join('loans', 'loans.id', '=', 'fines.loan_id')
+            ->where('fines.payment_status', 'unpaid')
+            ->where('loans.student_id', $studentId)
+            ->sum('fines.calculated_fine');
 
         if ((int) round((float) $unpaidTotal * 100) > self::UNPAID_FINE_LIMIT_CENTS) {
             throw ValidationException::withMessages([
@@ -113,6 +127,8 @@ class LoanService
 
     private function assertBookAvailable(int $bookId, ?Loan $except = null): void
     {
+        $this->lockBook($bookId);
+
         $hasOpenLoan = Loan::query()
             ->where('book_id', $bookId)
             ->whereNull('return_date')
@@ -124,6 +140,11 @@ class LoanService
                 'book_id' => 'This book already has an active loan.',
             ]);
         }
+    }
+
+    private function lockBook(int $bookId): void
+    {
+        Book::query()->whereKey($bookId)->lockForUpdate()->firstOrFail();
     }
 
     private function synchronizeCalculatedFine(Loan $loan): void

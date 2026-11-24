@@ -26,9 +26,10 @@ type ResourceIndexProps<T extends { id: number }> = {
     columns: ResourceColumn<T>[];
     canCreate?: boolean;
     canEdit?: (row: T) => boolean;
+    search?: string;
 };
 
-export default function ResourceIndex<T extends { id: number }>({ title, path, rows, columns, canCreate = true, canEdit }: ResourceIndexProps<T>) {
+export default function ResourceIndex<T extends { id: number }>({ title, path, rows, columns, canCreate = true, canEdit, search }: ResourceIndexProps<T>) {
     const singularTitle = title.endsWith('s') ? title.slice(0, -1) : title;
     const { flash, errors = {} } = usePage<SharedData & { errors?: Record<string, string> }>().props;
 
@@ -48,6 +49,23 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                         </Link>
                     )}
                 </header>
+
+                {search !== undefined && (
+                    <form method="get" action={path} className="flex max-w-xl flex-wrap gap-2">
+                        <input
+                            type="search"
+                            name="search"
+                            defaultValue={search}
+                            placeholder={`Search ${title.toLowerCase()}...`}
+                            aria-label={`Search ${title.toLowerCase()}`}
+                            className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                        />
+                        <button type="submit" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                            Search
+                        </button>
+                        {search && <Link href={path} className="rounded-md border px-4 py-2 text-sm">Clear</Link>}
+                    </form>
+                )}
 
                 {flash?.success && <p role="status" className="rounded-md border border-green-600/30 bg-green-600/10 px-4 py-3 text-sm">{flash.success}</p>}
                 {Object.values(errors).map((error, index) => (

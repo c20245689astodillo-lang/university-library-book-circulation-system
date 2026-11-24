@@ -5,27 +5,32 @@ namespace App\Services;
 use App\Models\Publisher;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PublisherService
 {
-    public function index(): LengthAwarePaginator
+    public function paginate(?string $search = null, int $perPage = 10): LengthAwarePaginator
     {
         return Publisher::query()
             ->select(['id', 'publisher_name'])
             ->withCount('books')
+            ->search($search)
             ->orderBy('publisher_name')
-            ->paginate(10);
+            ->paginate($perPage)
+            ->withQueryString();
     }
 
     public function all(): Collection
     {
-        return Publisher::query()->orderBy('publisher_name')->get(['id', 'publisher_name']);
+        return Publisher::query()->orderBy('publisher_name')->get(['id', 'publisher_name']); // CORRECT
     }
 
     public function create(array $data): Publisher
     {
-        return Publisher::create($this->sanitize($data));
+        $data = $this->sanitize($data);
+
+        return DB::transaction(fn (): Publisher => Publisher::create($data));
     }
 
     public function show(Publisher $publisher): Publisher
@@ -35,7 +40,13 @@ class PublisherService
 
     public function update(Publisher $publisher, array $data): bool
     {
-        return $publisher->update($this->sanitize($data));
+        $data = $this->sanitize($data);
+
+        return DB::transaction(function () use ($publisher, $data): bool {
+            $lockedPublisher = Publisher::query()->lockForUpdate()->findOrFail($publisher->getKey());
+
+            return $lockedPublisher->update($data);
+        });
     }
 
     public function hasBooks(Publisher $publisher): bool
@@ -45,13 +56,17 @@ class PublisherService
 
     public function delete(Publisher $publisher): void
     {
-        if ($this->hasBooks($publisher)) {
-            throw ValidationException::withMessages([
-                'publisher' => 'This publisher cannot be deleted while it has books.',
-            ]);
-        }
+        DB::transaction(function () use ($publisher): void {
+            $lockedPublisher = Publisher::query()->lockForUpdate()->findOrFail($publisher->getKey());
 
-        $publisher->delete();
+            if ($this->hasBooks($lockedPublisher)) {
+                throw ValidationException::withMessages([
+                    'publisher' => 'This publisher cannot be deleted while it has books.',
+                ]);
+            }
+
+            $lockedPublisher->delete();
+        });
     }
 
     private function sanitize(array $data): array
