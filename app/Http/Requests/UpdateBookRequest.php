@@ -42,8 +42,8 @@ class UpdateBookRequest extends FormRequest
                 $this->isbnRule(),
                 Rule::unique('books', 'book_isbn')->ignore($book?->id),
             ],
-            'book_title' => ['required', 'string', 'max:255', $this->bookTitleRule(), $this->uniqueTitleRule($book instanceof Book ? $book : null)],
-            'author_name' => ['required', 'string', 'max:255', $this->authorNameRule(), $this->uniqueAuthorRule($book instanceof Book ? $book : null)],
+            'book_title' => ['required', 'string', 'max:255', $this->bookTitleRule(), $this->uniqueTitleAuthorPairRule($book instanceof Book ? $book : null)],
+            'author_name' => ['required', 'string', 'max:255', $this->authorNameRule()],
         ];
     }
 
@@ -164,44 +164,26 @@ class UpdateBookRequest extends FormRequest
         };
     }
 
-    private function uniqueTitleRule(?Book $book): Closure
+    private function uniqueTitleAuthorPairRule(?Book $book): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail) use ($book): void {
-            if (! is_string($value)) {
+            $title = $this->input('book_title');
+            $author = $this->input('author_name');
+
+            if (! is_string($title) || ! is_string($author)) {
                 return;
             }
 
-            $normalizedTitle = mb_strtolower($value, 'UTF-8');
-
-            $query = Book::query()->whereRaw('LOWER(book_title) = ?', [$normalizedTitle]);
+            $query = Book::query()
+                ->whereRaw('LOWER(book_title) = ?', [mb_strtolower($title, 'UTF-8')])
+                ->whereRaw('LOWER(author_name) = ?', [mb_strtolower($author, 'UTF-8')]);
 
             if ($book) {
                 $query->where('id', '!=', $book->getKey());
             }
 
             if ($query->exists()) {
-                $fail('The title "'.$value.'" already exists. Enter a different title.');
-            }
-        };
-    }
-
-    private function uniqueAuthorRule(?Book $book): Closure
-    {
-        return function (string $attribute, mixed $value, Closure $fail) use ($book): void {
-            if (! is_string($value)) {
-                return;
-            }
-
-            $normalizedAuthor = mb_strtolower($value, 'UTF-8');
-
-            $query = Book::query()->whereRaw('LOWER(author_name) = ?', [$normalizedAuthor]);
-
-            if ($book) {
-                $query->where('id', '!=', $book->getKey());
-            }
-
-            if ($query->exists()) {
-                $fail('The author "'.$value.'" already exists. Enter a different author.');
+                $fail('This book already exists in the catalog.');
             }
         };
     }

@@ -15,9 +15,20 @@ type Props = {
     publishers: Publisher[];
     suggestedBookCode?: string;
     bookCodeOptions?: string[];
+    titleSuggestions?: string[];
+    authorSuggestions?: string[];
+    existingBookPairs?: { title: string; author: string }[];
 };
 
-export default function BookForm({ book, publishers, suggestedBookCode, bookCodeOptions = [] }: Props) {
+export default function BookForm({
+    book,
+    publishers,
+    suggestedBookCode,
+    bookCodeOptions = [],
+    titleSuggestions = [],
+    authorSuggestions = [],
+    existingBookPairs = [],
+}: Props) {
     const editing = Boolean(book);
     const path = '/books';
     const action = book ? `${path}/${book.id}` : path;
@@ -44,7 +55,6 @@ export default function BookForm({ book, publishers, suggestedBookCode, bookCode
             maxLength: 20,
             pattern: '([0-9]{1,3}-[0-9]{1,4}|[0-9]+(-[0-9]+)*(-?[xX])?)',
             title: 'Use a project code with 1 to 3 digits before the hyphen and 1 to 4 after, or a valid ISBN-10/13.',
-            description: editing ? undefined : 'The next five codes are shown. Only the next code can be selected, so the sequence stays in order.',
             options: !editing
                 ? bookCodeOptions.map((code, index) => ({ value: code, label: code, disabled: index > 0 }))
                 : undefined,
@@ -52,16 +62,20 @@ export default function BookForm({ book, publishers, suggestedBookCode, bookCode
         {
             name: 'book_title',
             label: 'Title',
+            type: 'autocomplete',
             required: true,
             maxLength: 255,
+            suggestions: titleSuggestions.map((title) => ({ value: title })),
             pattern: '(?!.*([\\p{N}])\\1{2})(?!.*[\\p{N}]{4,})[\\p{L}\\p{M}\\p{N}\\s\\x2e\\x2c\\x3a\\x3b\\x21\\x3f\\x26\\x27\\u2019\\x22\\x28\\x29\\x5b\\x5d\\x2f\\x5f\\x23\\x40\\x2b\\x2d]+',
             title: 'Use letters, numbers, spaces, and common title punctuation. Limit numbers to three digits and avoid three repeated digits.',
         },
         {
             name: 'author_name',
             label: 'Author',
+            type: 'autocomplete',
             required: true,
             maxLength: 255,
+            suggestions: authorSuggestions.map((author) => ({ value: author })),
             pattern: '[\\p{L}\\p{M}]+(?:[\\x20\\x2e\\x2c\\x27\\u2019\\x2d]+[\\p{L}\\p{M}]+)*\\x2e?',
             title: 'Use letters, spaces, periods, commas, apostrophes, or hyphens only.',
         },
@@ -75,6 +89,12 @@ export default function BookForm({ book, publishers, suggestedBookCode, bookCode
             method={editing ? 'put' : 'post'}
             values={values}
             fields={fields}
+            uniquePairConstraint={{
+                firstField: 'book_title',
+                secondField: 'author_name',
+                existingPairs: existingBookPairs.map(({ title, author }) => ({ first: title, second: author })),
+                message: 'This book already exists in the catalog.',
+            }}
         />
     );
 }

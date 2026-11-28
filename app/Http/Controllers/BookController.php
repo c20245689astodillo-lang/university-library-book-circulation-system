@@ -71,6 +71,7 @@ class BookController extends Controller
             'publishers' => $this->service->publishers(),
             'suggestedBookCode' => $bookCodeOptions[0],
             'bookCodeOptions' => $bookCodeOptions,
+            ...$this->formSuggestions(),
         ]);
     }
 
@@ -91,6 +92,7 @@ class BookController extends Controller
         return Inertia::render('books/form', [
             'book' => $book,
             'publishers' => $this->service->publishers($book->publisher),
+            ...$this->formSuggestions($book),
         ]);
     }
 
@@ -106,6 +108,37 @@ class BookController extends Controller
         $this->service->delete($book);
 
         return redirect()->route('books.index')->with('success', 'Book deleted.');
+    }
+
+    private function formSuggestions(?Book $excludeBook = null): array
+    {
+        $books = Book::query()
+            ->select(['book_title', 'author_name'])
+            ->when($excludeBook, fn ($query) => $query->where('id', '!=', $excludeBook->getKey()))
+            ->orderBy('book_title')
+            ->orderBy('id')
+            ->get();
+
+        return [
+            'titleSuggestions' => $books
+                ->pluck('book_title')
+                ->unique(fn (string $title) => mb_strtolower($title, 'UTF-8'))
+                ->values()
+                ->all(),
+            'authorSuggestions' => $books
+                ->pluck('author_name')
+                ->unique(fn (string $author) => mb_strtolower($author, 'UTF-8'))
+                ->values()
+                ->all(),
+            'existingBookPairs' => $books
+                ->unique(fn (Book $book) => mb_strtolower($book->book_title, 'UTF-8')."\0".mb_strtolower($book->author_name, 'UTF-8'))
+                ->map(fn (Book $book) => [
+                    'title' => $book->book_title,
+                    'author' => $book->author_name,
+                ])
+                ->values()
+                ->all(),
+        ];
     }
 
 }

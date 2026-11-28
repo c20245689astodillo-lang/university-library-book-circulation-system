@@ -219,8 +219,9 @@ class BookService
         unset($data['book_isbn']);
 
         return DB::transaction(function () use ($data, $selectedCode): Book {
-            // Lock one shared row so simultaneous creates receive different codes.
+            // Lock one shared row so simultaneous creates keep codes and title-author pairs unique.
             Publisher::query()->orderBy('id')->lockForUpdate()->firstOrFail();
+            $this->assertUniqueTitleAuthorPair($data);
             $publisher = Publisher::query()->whereKey($data['publisher_id'])->lockForUpdate()->firstOrFail();
 
             if ($publisher->archived_at !== null) {
@@ -287,7 +288,9 @@ class BookService
         $data = $this->sanitize($data);
 
         return DB::transaction(function () use ($book, $data): bool {
+            Publisher::query()->orderBy('id')->lockForUpdate()->firstOrFail();
             $lockedBook = Book::query()->lockForUpdate()->findOrFail($book->getKey());
+            $this->assertUniqueTitleAuthorPair($data, $lockedBook->getKey());
             $publisherId = $data['publisher_id'] ?? $lockedBook->publisher_id;
 
             if ((int) $publisherId !== (int) $lockedBook->publisher_id) {
@@ -332,5 +335,29 @@ class BookService
         }
 
         return $data;
+    }
+
+    private function assertUniqueTitleAuthorPair(array $data, ?int $exceptBookId = null): void
+    {
+        $title = $data['book_title'] ?? null;
+        $author = $data['author_name'] ?? null;
+
+        if (! is_string($title) || ! is_string($author)) {
+            return;
+        }
+
+        $query = Book::query()
+            ->whereRaw('LOWER(book_title) = ?', [mb_strtolower($title, 'UTF-8')])
+            ->whereRaw('LOWER(author_name) = ?', [mb_strtolower($author, 'UTF-8')]);
+
+        if ($exceptBookId !== null) {
+            $query->where('id', '!=', $exceptBookId);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'book_title' => 'This book already exists in the catalog.',
+            ]);
+        }
     }
 }

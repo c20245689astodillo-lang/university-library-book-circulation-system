@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Book;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -35,8 +36,8 @@ class StoreBookRequest extends FormRequest
         return [
             'publisher_id' => ['required', 'integer', Rule::exists('publishers', 'id')],
             'book_isbn' => ['required', 'string', 'max:20', 'regex:/^100-\d{3,4}$/', Rule::unique('books', 'book_isbn')],
-            'book_title' => ['required', 'string', 'max:255', $this->bookTitleRule(), $this->uniqueTitleRule()],
-            'author_name' => ['required', 'string', 'max:255', $this->authorNameRule(), $this->uniqueAuthorRule()],
+            'book_title' => ['required', 'string', 'max:255', $this->bookTitleRule(), $this->uniqueTitleAuthorPairRule()],
+            'author_name' => ['required', 'string', 'max:255', $this->authorNameRule()],
         ];
     }
 
@@ -121,36 +122,23 @@ class StoreBookRequest extends FormRequest
         };
     }
 
-    private function uniqueTitleRule(): Closure
+    private function uniqueTitleAuthorPairRule(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail): void {
-            if (! is_string($value)) {
+            $title = $this->input('book_title');
+            $author = $this->input('author_name');
+
+            if (! is_string($title) || ! is_string($author)) {
                 return;
             }
 
-            $exists = \App\Models\Book::query()
-                ->whereRaw('LOWER(book_title) = ?', [mb_strtolower($value, 'UTF-8')])
+            $exists = Book::query()
+                ->whereRaw('LOWER(book_title) = ?', [mb_strtolower($title, 'UTF-8')])
+                ->whereRaw('LOWER(author_name) = ?', [mb_strtolower($author, 'UTF-8')])
                 ->exists();
 
             if ($exists) {
-                $fail('The title "'.$value.'" already exists. Enter a different title.');
-            }
-        };
-    }
-
-    private function uniqueAuthorRule(): Closure
-    {
-        return function (string $attribute, mixed $value, Closure $fail): void {
-            if (! is_string($value)) {
-                return;
-            }
-
-            $exists = \App\Models\Book::query()
-                ->whereRaw('LOWER(author_name) = ?', [mb_strtolower($value, 'UTF-8')])
-                ->exists();
-
-            if ($exists) {
-                $fail('The author "'.$value.'" already exists. Enter a different author.');
+                $fail('This book already exists in the catalog.');
             }
         };
     }

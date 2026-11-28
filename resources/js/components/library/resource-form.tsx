@@ -12,10 +12,14 @@ export type SelectOption = {
     disabled?: boolean;
 };
 
+export type TextSuggestion = {
+    value: string;
+};
+
 export type FormField = {
     name: string;
     label: string;
-    type?: 'text' | 'email' | 'date' | 'number' | 'password' | 'select';
+    type?: 'text' | 'email' | 'date' | 'number' | 'password' | 'select' | 'autocomplete';
     required?: boolean;
     disabled?: boolean;
     readOnly?: boolean;
@@ -33,6 +37,7 @@ export type FormField = {
     todayAction?: { label: string; value: string; disabledUntilField?: string };
     emptyMessage?: string;
     options?: SelectOption[];
+    suggestions?: TextSuggestion[];
 };
 
 function addDays(date: string, days: number): string | undefined {
@@ -54,14 +59,37 @@ type ResourceFormProps = {
     method: 'post' | 'put';
     values: Record<string, FormValue>;
     fields: FormField[];
+    uniquePairConstraint?: {
+        firstField: string;
+        secondField: string;
+        existingPairs: { first: string; second: string }[];
+        message: string;
+    };
 };
 
-export default function ResourceForm({ title, path, action, method, values, fields }: ResourceFormProps) {
+export default function ResourceForm({ title, path, action, method, values, fields, uniquePairConstraint }: ResourceFormProps) {
     const form = useForm<Record<string, FormValue>>(values);
     const missingRequiredOptions = fields.some((field) => field.type === 'select' && field.required && !field.options?.length);
+    const firstPairValue = String(form.data[uniquePairConstraint?.firstField ?? ''] ?? '').trim().toLocaleLowerCase();
+    const secondPairValue = String(form.data[uniquePairConstraint?.secondField ?? ''] ?? '').trim().toLocaleLowerCase();
+    const duplicatePairExists = Boolean(
+        firstPairValue &&
+            secondPairValue &&
+            uniquePairConstraint?.existingPairs.some(
+                (pair) => pair.first.trim().toLocaleLowerCase() === firstPairValue && pair.second.trim().toLocaleLowerCase() === secondPairValue,
+            ),
+    );
+
+    function clearPairErrors(changedField: string) {
+        if (!uniquePairConstraint || ![uniquePairConstraint.firstField, uniquePairConstraint.secondField].includes(changedField)) return;
+
+        form.clearErrors(uniquePairConstraint.firstField);
+        form.clearErrors(uniquePairConstraint.secondField);
+    }
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        if (duplicatePairExists) return;
 
         const submittedData: Record<string, FormValue> = {};
         new FormData(event.currentTarget).forEach((value, name) => {
@@ -153,6 +181,58 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                             </ComboboxList>
                                         </ComboboxContent>
                                     </Combobox>
+                                ) : field.type === 'autocomplete' ? (
+                                    <>
+                                        <Combobox<TextSuggestion>
+                                            items={field.suggestions ?? []}
+                                            value={
+                                                field.suggestions?.find(
+                                                    (suggestion) => suggestion.value.toLocaleLowerCase() === String(value).trim().toLocaleLowerCase(),
+                                                ) ?? null
+                                            }
+                                            inputValue={String(value)}
+                                            itemToStringLabel={(suggestion) => suggestion.value}
+                                            itemToStringValue={(suggestion) => suggestion.value}
+                                            onInputValueChange={(next) => {
+                                                form.setData(field.name, next);
+                                                form.clearErrors(field.name);
+                                                clearPairErrors(field.name);
+                                            }}
+                                            onValueChange={(suggestion) => {
+                                                if (!suggestion) return;
+
+                                                form.setData(field.name, suggestion.value);
+                                                form.clearErrors(field.name);
+                                                clearPairErrors(field.name);
+                                            }}
+                                        >
+                                            <ComboboxInput
+                                                id={field.name}
+                                                aria-label={field.label}
+                                                className="w-full min-w-0"
+                                                required={field.required}
+                                                disabled={field.disabled}
+                                                pattern={field.pattern}
+                                                title={field.title}
+                                                maxLength={field.maxLength}
+                                                autoComplete={field.autoComplete ?? 'off'}
+                                                placeholder={`Choose or type ${field.label.toLowerCase()}`}
+                                            />
+                                            <ComboboxContent
+                                                collisionAvoidance={{ side: 'shift', align: 'shift', fallbackAxisSide: 'none' }}
+                                            >
+                                                <ComboboxEmpty>No matching {field.label.toLowerCase()} found. You can still enter a new value.</ComboboxEmpty>
+                                                <ComboboxList>
+                                                    {(suggestion: TextSuggestion) => (
+                                                        <ComboboxItem key={suggestion.value} value={suggestion}>
+                                                            {suggestion.value}
+                                                        </ComboboxItem>
+                                                    )}
+                                                </ComboboxList>
+                                            </ComboboxContent>
+                                        </Combobox>
+                                        <input type="hidden" name={field.name} value={String(value)} />
+                                    </>
                                 ) : (
                                     <input
                                         id={field.name}
@@ -237,7 +317,13 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                         {todayAction.label}
                                     </Button>
                                 )}
-                                {error && <p className="text-destructive text-sm">{error}</p>}
+                                {error ? (
+                                    <p className="text-destructive text-sm">{error}</p>
+                                ) : duplicatePairExists && field.name === uniquePairConstraint?.firstField ? (
+                                    <p role="alert" className="text-destructive text-sm">
+                                        {uniquePairConstraint.message}
+                                    </p>
+                                ) : null}
                             </div>
                         );
                     })}
@@ -245,7 +331,7 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                     <div className="flex items-center gap-3">
                         <Button
                             type="submit"
-                            disabled={form.processing || missingRequiredOptions}
+                            disabled={form.processing || missingRequiredOptions || duplicatePairExists}
                         >
                             {form.processing ? 'Saving...' : 'Save'}
                         </Button>
