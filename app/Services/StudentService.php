@@ -46,7 +46,11 @@ class StudentService
 
         return Student::query()
             ->select(['id', 'student_number', 'student_name', 'student_email'])
-            ->withCount('loans')
+            ->whereNull('archived_at')
+            ->withCount([
+                'loans',
+                'loans as active_loans_count' => fn ($query) => $query->whereNull('return_date'),
+            ])
             ->when($search !== null && $search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     $query->where('student_number', 'like', '%'.$search.'%')
@@ -160,6 +164,33 @@ class StudentService
     public function hasLoans(Student $student): bool
     {
         return $student->loans()->exists();
+    }
+
+    public function archive(Student $student): void
+    {
+        DB::transaction(function () use ($student): void {
+            $lockedStudent = Student::query()->lockForUpdate()->findOrFail($student->getKey());
+
+            if ($lockedStudent->archived_at !== null) {
+                return;
+            }
+
+            if ($lockedStudent->loans()->whereNull('return_date')->exists()) {
+                throw ValidationException::withMessages([
+                    'student' => 'A student with an unreturned book cannot be archived.',
+                ]);
+            }
+
+            $lockedStudent->forceFill(['archived_at' => now()])->save();
+        });
+    }
+
+    public function restore(Student $student): void
+    {
+        DB::transaction(function () use ($student): void {
+            $lockedStudent = Student::query()->lockForUpdate()->findOrFail($student->getKey());
+            $lockedStudent->forceFill(['archived_at' => null])->save();
+        });
     }
 
     public function delete(Student $student): void

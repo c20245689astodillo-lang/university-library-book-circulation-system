@@ -28,10 +28,22 @@ type ResourceIndexProps<T extends { id: number }> = {
     columns: ResourceColumn<T>[];
     canCreate?: boolean;
     canEdit?: (row: T) => boolean;
+    rowAction?: (row: T) => ReactNode;
+    headerAction?: ReactNode;
     search?: string;
 };
 
-export default function ResourceIndex<T extends { id: number }>({ title, path, rows, columns, canCreate = true, canEdit, search }: ResourceIndexProps<T>) {
+export default function ResourceIndex<T extends { id: number }>({
+    title,
+    path,
+    rows,
+    columns,
+    canCreate = true,
+    canEdit,
+    rowAction,
+    headerAction,
+    search,
+}: ResourceIndexProps<T>) {
     const singularTitle = title.endsWith('s') ? title.slice(0, -1) : title;
     const { flash, errors = {} } = usePage<SharedData & { errors?: Record<string, string> }>().props;
 
@@ -45,11 +57,14 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                         <h1 className="text-2xl font-semibold">{title}</h1>
                         <p className="text-muted-foreground mt-1 text-sm">Manage {title.toLowerCase()} in the library.</p>
                     </div>
-                    {canCreate && (
-                        <Link href={`${path}/create`} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-                            Add {singularTitle}
-                        </Link>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                        {headerAction}
+                        {canCreate && (
+                            <Button asChild>
+                                <Link href={`${path}/create`}>Add {singularTitle}</Link>
+                            </Button>
+                        )}
+                    </div>
                 </header>
 
                 {search !== undefined && (
@@ -77,23 +92,33 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                 ))}
 
                 <div className="grid gap-3 xl:hidden">
-                    {rows.data.length ? rows.data.map((row) => (
-                        <article key={row.id} className="min-w-0 rounded-lg border p-4">
-                            <dl className="space-y-3">
-                                {columns.map((column) => (
-                                    <div key={column.label} className="grid grid-cols-[minmax(5.5rem,0.38fr)_minmax(0,1fr)] gap-3 text-sm">
-                                        <dt className="text-muted-foreground">{column.label}</dt>
-                                        <dd className="min-w-0 break-words">{column.render(row)}</dd>
+                    {rows.data.length ? rows.data.map((row) => {
+                        const showEdit = !canEdit || canEdit(row);
+                        const action = rowAction?.(row);
+
+                        return (
+                            <article key={row.id} className="min-w-0 rounded-lg border p-4">
+                                <dl className="space-y-3">
+                                    {columns.map((column) => (
+                                        <div key={column.label} className="grid grid-cols-[minmax(5.5rem,0.38fr)_minmax(0,1fr)] gap-3 text-sm">
+                                            <dt className="text-muted-foreground">{column.label}</dt>
+                                            <dd className="min-w-0 break-words">{column.render(row)}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                                {(showEdit || action) && (
+                                    <div className="mt-4 flex items-center gap-4 border-t pt-3">
+                                        {showEdit && (
+                                            <Button variant="outline" size="sm" asChild>
+                                                <Link href={`${path}/${row.id}/edit`}>Edit</Link>
+                                            </Button>
+                                        )}
+                                        {action}
                                     </div>
-                                ))}
-                            </dl>
-                            {(!canEdit || canEdit(row)) && (
-                                <div className="mt-4 border-t pt-3">
-                                    <Link className="underline underline-offset-4" href={`${path}/${row.id}/edit`}>Edit</Link>
-                                </div>
-                            )}
-                        </article>
-                    )) : (
+                                )}
+                            </article>
+                        );
+                    }) : (
                         <p className="text-muted-foreground rounded-lg border px-4 py-8 text-center">
                             No {title.toLowerCase()} found.
                         </p>
@@ -111,18 +136,28 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {rows.data.length ? rows.data.map((row) => (
-                                <tr key={row.id}>
-                                    {columns.map((column) => (
-                                        <td key={column.label} className="max-w-xs break-words px-4 py-3">{column.render(row)}</td>
-                                    ))}
-                                    <td className="whitespace-nowrap px-4 py-3">
-                                        {(!canEdit || canEdit(row)) && (
-                                            <Link className="underline underline-offset-4" href={`${path}/${row.id}/edit`}>Edit</Link>
-                                        )}
-                                    </td>
-                                </tr>
-                            )) : (
+                            {rows.data.length ? rows.data.map((row) => {
+                                const showEdit = !canEdit || canEdit(row);
+                                const action = rowAction?.(row);
+
+                                return (
+                                    <tr key={row.id}>
+                                        {columns.map((column) => (
+                                            <td key={column.label} className="max-w-xs break-words px-4 py-3">{column.render(row)}</td>
+                                        ))}
+                                        <td className="whitespace-nowrap px-4 py-3">
+                                            <div className="flex items-center gap-4">
+                                                {showEdit && (
+                                                    <Button variant="outline" size="sm" asChild>
+                                                        <Link href={`${path}/${row.id}/edit`}>Edit</Link>
+                                                    </Button>
+                                                )}
+                                                {action}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            }) : (
                                 <tr>
                                     <td colSpan={columns.length + 1} className="text-muted-foreground px-4 py-8 text-center">
                                         No {title.toLowerCase()} found.
@@ -137,12 +172,12 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                     <nav className="flex flex-wrap gap-2" aria-label={`${title} pagination`}>
                         {rows.links.map((link, index) => {
                             const label = link.label.replace(/&laquo;|&raquo;/g, '').trim();
-                            const classes = `rounded-md border px-3 py-1.5 text-sm ${link.active ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`;
-
                             return link.url ? (
-                                <Link key={`${label}-${index}`} href={link.url} className={classes}>{label}</Link>
+                                <Button key={`${label}-${index}`} size="sm" variant={link.active ? 'default' : 'outline'} asChild>
+                                    <Link href={link.url}>{label}</Link>
+                                </Button>
                             ) : (
-                                <span key={`${label}-${index}`} className={`${classes} text-muted-foreground`}>{label}</span>
+                                <Button key={`${label}-${index}`} size="sm" variant="outline" disabled>{label}</Button>
                             );
                         })}
                     </nav>

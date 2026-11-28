@@ -19,6 +19,7 @@ class LoanService
     {
         return Loan::query()
             ->select(['id', 'student_id', 'book_id', 'issue_date', 'due_date', 'return_date', 'fine_per_day'])
+            ->whereNull('archived_at')
             ->with([
                 'student:id,student_number,student_name',
                 'book:id,book_isbn,book_title',
@@ -57,7 +58,10 @@ class LoanService
 
         return [
             'today' => Carbon::today()->toDateString(),
-            'students' => Student::query()->orderBy('student_name')->get(['id', 'student_number', 'student_name'])
+            'students' => Student::query()
+                ->whereNull('archived_at')
+                ->when($loan, fn ($query) => $query->orWhere('id', $loan->student_id))
+                ->orderBy('student_name')->get(['id', 'student_number', 'student_name'])
                 ->map(fn (Student $student) => [
                     'id' => $student->id,
                     'student_number' => $student->student_number,
@@ -74,11 +78,12 @@ class LoanService
                 })
                 ->values(),
             'books' => Book::query()
+                ->whereNull('archived_at')
                 ->where(function ($query) use ($reservedBookIds, $loan): void {
                     $query->whereNotIn('id', $reservedBookIds);
 
                     if ($loan) {
-                        $query->orWhereKey($loan->book_id);
+                        $query->orWhere('id', $loan->book_id);
                     }
                 })
                 ->orderBy('book_title')
@@ -99,7 +104,13 @@ class LoanService
             if (empty($data['return_date'] ?? null)) {
                 $this->assertBookAvailable($bookId);
             } else {
-                $this->lockBook($bookId);
+                $book = $this->lockBook($bookId);
+
+                if ($book->archived_at !== null) {
+                    throw ValidationException::withMessages([
+                        'book_id' => 'An archived book cannot be loaned.',
+                    ]);
+                }
             }
 
             $loan = Loan::create($data);
@@ -158,9 +169,38 @@ class LoanService
         });
     }
 
+    public function archive(Loan $loan): void
+    {
+        DB::transaction(function () use ($loan): void {
+            $lockedLoan = Loan::query()->lockForUpdate()->findOrFail($loan->getKey());
+
+            if ($lockedLoan->return_date === null) {
+                throw ValidationException::withMessages([
+                    'loan' => 'A loan cannot be archived until the book has been returned.',
+                ]);
+            }
+
+            $lockedLoan->forceFill(['archived_at' => now()])->save();
+        });
+    }
+
+    public function restore(Loan $loan): void
+    {
+        DB::transaction(function () use ($loan): void {
+            $lockedLoan = Loan::query()->lockForUpdate()->findOrFail($loan->getKey());
+            $lockedLoan->forceFill(['archived_at' => null])->save();
+        });
+    }
+
     private function assertStudentCanBorrow(int $studentId, ?Loan $except = null, bool $willBeActive = true): void
     {
-        Student::query()->whereKey($studentId)->lockForUpdate()->firstOrFail();
+        $student = Student::query()->whereKey($studentId)->lockForUpdate()->firstOrFail();
+
+        if ($student->archived_at !== null) {
+            throw ValidationException::withMessages([
+                'student_id' => 'An archived student cannot receive a loan.',
+            ]);
+        }
 
         if ($willBeActive) {
             $activeLoanCount = Loan::query()
@@ -192,7 +232,13 @@ class LoanService
 
     private function assertBookAvailable(int $bookId, ?Loan $except = null): void
     {
-        $this->lockBook($bookId);
+        $book = $this->lockBook($bookId);
+
+        if ($book->archived_at !== null) {
+            throw ValidationException::withMessages([
+                'book_id' => 'An archived book cannot be loaned.',
+            ]);
+        }
 
         $hasOpenLoan = Loan::query()
             ->where('book_id', $bookId)
@@ -207,9 +253,9 @@ class LoanService
         }
     }
 
-    private function lockBook(int $bookId): void
+    private function lockBook(int $bookId): Book
     {
-        Book::query()->whereKey($bookId)->lockForUpdate()->firstOrFail();
+        return Book::query()->whereKey($bookId)->lockForUpdate()->firstOrFail();
     }
 
     private function synchronizeCalculatedFine(Loan $loan): void

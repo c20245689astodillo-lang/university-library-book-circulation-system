@@ -1,4 +1,6 @@
 import ResourceIndex, { type Paginated, type ResourceColumn } from '@/components/library/resource-index';
+import { Button } from '@/components/ui/button';
+import { Link } from '@inertiajs/react';
 
 type Fine = {
     id: number;
@@ -18,5 +20,22 @@ export default function FinesIndex({ fines, filters }: { fines: Paginated<Fine>;
         { label: 'Payment status', render: (fine) => fine.payment_status },
     ];
 
-    return <ResourceIndex title="Fines" path="/fines" rows={fines} columns={columns} search={filters.search ?? ''} canCreate={false} />;
+    return <ResourceIndex
+        title="Fines"
+        path="/fines"
+        rows={fines}
+        columns={columns}
+        search={filters.search ?? ''}
+        canCreate={false}
+        headerAction={(
+            <Button variant="outline" asChild>
+                <Link href="/archives?type=fines">View Archives</Link>
+            </Button>
+        )}
+        rowAction={(fine) => fine.payment_status !== 'paid' ? null : (
+            <Button variant="outline" size="sm" asChild>
+                <Link href={`/archives/fines/${fine.id}/archive`} method="post" as="button">Archive</Link>
+            </Button>
+        )}
+    />;
 }

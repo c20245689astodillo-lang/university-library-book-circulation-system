@@ -22,6 +22,7 @@ class Loan extends Model
         'due_date'     => 'date',
         'return_date'  => 'date',
         'fine_per_day' => 'decimal:2',
+        'archived_at'  => 'datetime',
     ];
 
     public function student(): BelongsTo

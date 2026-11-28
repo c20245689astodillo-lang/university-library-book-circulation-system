@@ -1,4 +1,6 @@
 import ResourceIndex, { type Paginated, type ResourceColumn } from '@/components/library/resource-index';
+import { Button } from '@/components/ui/button';
+import { Link } from '@inertiajs/react';
 
 type Loan = {
     id: number;
@@ -20,5 +22,21 @@ export default function LoansIndex({ loans, filters }: { loans: Paginated<Loan>;
         { label: 'Fine', render: (loan) => loan.fine ? `${loan.fine.calculated_fine} (${loan.fine.payment_status})` : '—' },
     ];
 
-    return <ResourceIndex title="Loans" path="/loans" rows={loans} columns={columns} search={filters.search ?? ''} />;
+    return <ResourceIndex
+        title="Loans"
+        path="/loans"
+        rows={loans}
+        columns={columns}
+        search={filters.search ?? ''}
+        headerAction={(
+            <Button variant="outline" asChild>
+                <Link href="/archives?type=loans">View Archives</Link>
+            </Button>
+        )}
+        rowAction={(loan) => loan.return_date === null ? null : (
+            <Button variant="outline" size="sm" asChild>
+                <Link href={`/archives/loans/${loan.id}/archive`} method="post" as="button">Archive</Link>
+            </Button>
+        )}
+    />;
 }

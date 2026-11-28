@@ -6,6 +6,7 @@ use App\Models\Fine;
 use App\Models\Loan;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class FineService
 {
@@ -13,6 +14,7 @@ class FineService
     {
         return Fine::query()
             ->select(['id', 'loan_id', 'calculated_fine', 'payment_status'])
+            ->whereNull('archived_at')
             ->with([
                 'loan:id,student_id,book_id,issue_date,due_date,return_date',
                 'loan.student:id,student_number,student_name',
@@ -57,6 +59,29 @@ class FineService
             $lockedFine = Fine::query()->lockForUpdate()->findOrFail($fine->getKey());
 
             return $lockedFine->update(['payment_status' => $data['payment_status']]);
+        });
+    }
+
+    public function archive(Fine $fine): void
+    {
+        DB::transaction(function () use ($fine): void {
+            $lockedFine = Fine::query()->lockForUpdate()->findOrFail($fine->getKey());
+
+            if ($lockedFine->payment_status !== 'paid') {
+                throw ValidationException::withMessages([
+                    'fine' => 'An unpaid fine cannot be archived.',
+                ]);
+            }
+
+            $lockedFine->forceFill(['archived_at' => now()])->save();
+        });
+    }
+
+    public function restore(Fine $fine): void
+    {
+        DB::transaction(function () use ($fine): void {
+            $lockedFine = Fine::query()->lockForUpdate()->findOrFail($fine->getKey());
+            $lockedFine->forceFill(['archived_at' => null])->save();
         });
     }
 

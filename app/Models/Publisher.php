@@ -10,6 +10,10 @@ class Publisher extends Model
 {
     protected $fillable = ['publisher_name'];
 
+    protected $casts = [
+        'archived_at' => 'datetime',
+    ];
+
     public function books(): HasMany
     {
         return $this->hasMany(Book::class);

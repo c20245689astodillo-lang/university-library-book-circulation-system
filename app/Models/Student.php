@@ -10,6 +10,10 @@ class Student extends Model
 {
     protected $fillable = ['student_number', 'student_name', 'student_email'];
 
+    protected $casts = [
+        'archived_at' => 'datetime',
+    ];
+
     public function loans(): HasMany
     {
         return $this->hasMany(Loan::class);

@@ -11,6 +11,7 @@ class Fine extends Model
 
     protected $casts = [
         'calculated_fine' => 'decimal:2',
+        'archived_at' => 'datetime',
     ];
 
     public function loan(): BelongsTo

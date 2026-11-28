@@ -26,15 +26,16 @@ Route::middleware(['auth'])->group(function () {
         return Inertia::render('dashboard', [
             'today' => $today->toDateString(),
             'stats' => [
-                'books' => Book::query()->count(),
-                'students' => Student::query()->count(),
-                'activeLoans' => (clone $issuedLoans)->count(),
-                'overdueLoans' => (clone $issuedLoans)->whereDate('due_date', '<', $today)->count(),
+                'books' => Book::query()->whereNull('archived_at')->count(),
+                'students' => Student::query()->whereNull('archived_at')->count(),
+                'activeLoans' => (clone $issuedLoans)->whereNull('archived_at')->count(),
+                'overdueLoans' => (clone $issuedLoans)->whereNull('archived_at')->whereDate('due_date', '<', $today)->count(),
                 'dueSoon' => (clone $issuedLoans)
+                    ->whereNull('archived_at')
                     ->whereBetween('due_date', [$today, $today->copy()->addDays(3)])
                     ->count(),
-                'unpaidFines' => (float) Fine::query()->where('payment_status', 'unpaid')->sum('calculated_fine'),
-                'unpaidFinesCount' => Fine::query()->where('payment_status', 'unpaid')->count(),
+                'unpaidFines' => (float) Fine::query()->whereNull('archived_at')->where('payment_status', 'unpaid')->sum('calculated_fine'),
+                'unpaidFinesCount' => Fine::query()->whereNull('archived_at')->where('payment_status', 'unpaid')->count(),
             ],
             'recentLoans' => Loan::query()
                 ->with([
@@ -43,11 +44,15 @@ Route::middleware(['auth'])->group(function () {
                 ])
                 ->latest('issue_date')
                 ->latest('id')
+                ->whereNull('archived_at')
                 ->limit(6)
                 ->get(['id', 'student_id', 'book_id', 'issue_date', 'due_date', 'return_date']),
         ]);
     })->name('dashboard');
 
+    Route::get('archives', [BookController::class, 'archives'])->name('archives.index');
+    Route::post('archives/{type}/{id}/archive', [BookController::class, 'archiveRecord'])->name('archives.archive');
+    Route::post('archives/{type}/{id}/restore', [BookController::class, 'restoreRecord'])->name('archives.restore');
     Route::resource('books', BookController::class);
     Route::resource('students', StudentController::class);
     Route::resource('publishers', PublisherController::class);

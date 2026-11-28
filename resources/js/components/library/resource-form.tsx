@@ -1,4 +1,5 @@
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from '@/components/ui/combobox';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
@@ -222,17 +223,19 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                     </p>
                                 )}
                                 {todayAction && !value && (
-                                    <button
+                                    <Button
                                         type="button"
                                         onClick={() => {
                                             form.setData(field.name, todayAction.value);
                                             form.clearErrors(field.name);
                                         }}
                                         disabled={todayActionDisabled}
-                                        className="text-primary w-fit text-sm underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50"
+                                        variant="link"
+                                        size="sm"
+                                        className="h-auto w-fit px-0 py-0"
                                     >
                                         {todayAction.label}
-                                    </button>
+                                    </Button>
                                 )}
                                 {error && <p className="text-destructive text-sm">{error}</p>}
                             </div>
@@ -240,16 +243,15 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                     })}
 
                     <div className="flex items-center gap-3">
-                        <button
+                        <Button
                             type="submit"
                             disabled={form.processing || missingRequiredOptions}
-                            className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
                         >
                             {form.processing ? 'Saving...' : 'Save'}
-                        </button>
-                        <Link href={path} className="text-sm underline underline-offset-4">
-                            Cancel
-                        </Link>
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href={path}>Cancel</Link>
+                        </Button>
                     </div>
                 </form>
             </main>

@@ -30,6 +30,39 @@ class BookController extends Controller
         ]);
     }
 
+    public function archives(Request $request): Response
+    {
+        $validated = $request->validate([
+            'type' => ['nullable', 'string', 'in:books,students,publishers,loans,fines'],
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+        $type = $validated['type'] ?? 'books';
+        $search = isset($validated['search']) ? trim(strip_tags($validated['search'])) : null;
+
+        return Inertia::render('books/index', [
+            'records' => $this->service->archivedRecords($type, $search),
+            'archiveType' => $type,
+            'isArchives' => true,
+            'filters' => ['search' => $search ?? ''],
+        ]);
+    }
+
+    public function archiveRecord(string $type, int $id): RedirectResponse
+    {
+        abort_unless(in_array($type, ['books', 'students', 'publishers', 'loans', 'fines'], true), 404);
+        $this->service->archiveRecord($type, $id);
+
+        return redirect()->route('archives.index', ['type' => $type])->with('success', ucfirst(rtrim($type, 's')).' archived.');
+    }
+
+    public function restoreRecord(string $type, int $id): RedirectResponse
+    {
+        abort_unless(in_array($type, ['books', 'students', 'publishers', 'loans', 'fines'], true), 404);
+        $this->service->restoreRecord($type, $id);
+
+        return redirect()->route('archives.index', ['type' => $type])->with('success', ucfirst(rtrim($type, 's')).' restored.');
+    }
+
     public function create(): Response
     {
         $bookCodeOptions = $this->service->nextAvailableBookCodes(5);
@@ -57,7 +90,7 @@ class BookController extends Controller
     {
         return Inertia::render('books/form', [
             'book' => $book,
-            'publishers' => $this->service->publishers(),
+            'publishers' => $this->service->publishers($book->publisher),
         ]);
     }
 
@@ -74,4 +107,5 @@ class BookController extends Controller
 
         return redirect()->route('books.index')->with('success', 'Book deleted.');
     }
+
 }

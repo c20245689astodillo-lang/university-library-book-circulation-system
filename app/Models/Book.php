@@ -10,6 +10,10 @@ class Book extends Model
 {
     protected $fillable = ['publisher_id', 'book_isbn', 'book_title', 'author_name'];
 
+    protected $casts = [
+        'archived_at' => 'datetime',
+    ];
+
     public function publisher(): BelongsTo
     {
         return $this->belongsTo(Publisher::class);

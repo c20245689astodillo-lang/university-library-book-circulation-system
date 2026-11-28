@@ -14,6 +14,7 @@ class PublisherService
     {
         return Publisher::query()
             ->select(['id', 'publisher_name'])
+            ->whereNull('archived_at')
             ->withCount('books')
             ->search($search)
             ->orderBy('publisher_name')
@@ -23,7 +24,7 @@ class PublisherService
 
     public function all(): Collection
     {
-        return Publisher::query()->orderBy('publisher_name')->get(['id', 'publisher_name']); // CORRECT
+        return Publisher::query()->whereNull('archived_at')->orderBy('publisher_name')->get(['id', 'publisher_name']);
     }
 
     public function create(array $data): Publisher
@@ -52,6 +53,22 @@ class PublisherService
     public function hasBooks(Publisher $publisher): bool
     {
         return $publisher->books()->exists();
+    }
+
+    public function archive(Publisher $publisher): void
+    {
+        DB::transaction(function () use ($publisher): void {
+            $lockedPublisher = Publisher::query()->lockForUpdate()->findOrFail($publisher->getKey());
+            $lockedPublisher->forceFill(['archived_at' => now()])->save();
+        });
+    }
+
+    public function restore(Publisher $publisher): void
+    {
+        DB::transaction(function () use ($publisher): void {
+            $lockedPublisher = Publisher::query()->lockForUpdate()->findOrFail($publisher->getKey());
+            $lockedPublisher->forceFill(['archived_at' => null])->save();
+        });
     }
 
     public function delete(Publisher $publisher): void
