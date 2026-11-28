@@ -58,14 +58,7 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
 
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
     *,
     ::after,
@@ -93,7 +86,7 @@
     --accent-foreground: hsl(0, 0%, 9%);
     --destructive: hsl(0, 84.2%, 60.2%);
     --destructive-foreground: hsl(0, 0%, 98%);
-    --border: hsl(0, 0%, 92.8%);
+    --border: hsl(0, 0%, 90%);
     --input: hsl(0, 0%, 89.8%);
     --ring: hsl(0, 0%, 3.9%);
     --chart-1: hsl(12, 76%, 61%);
@@ -123,7 +116,7 @@
     --primary-foreground: hsl(0, 0%, 9%);
     --secondary: hsl(0, 0%, 14.9%);
     --secondary-foreground: hsl(0, 0%, 98%);
-    --muted: hsl(0, 0%, 6.9%);
+    --muted: hsl(0, 0%, 14.9%);
     --muted-foreground: hsl(0, 0%, 63.9%);
     --accent: hsl(0, 0%, 14.9%);
     --accent-foreground: hsl(0, 0%, 98%);

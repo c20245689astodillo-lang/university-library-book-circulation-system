@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 
 import AppearanceTabs from '@/components/appearance-tabs';
 import HeadingSmall from '@/components/heading-small';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { type BreadcrumbItem } from '@/types';
 
 import AppLayout from '@/layouts/app-layout';
@@ -20,10 +21,14 @@ export default function Appearance() {
             <Head title="Appearance settings" />
 
             <SettingsLayout>
-                <div className="space-y-6">
-                    <HeadingSmall title="Appearance settings" description="Update your account's appearance settings" />
-                    <AppearanceTabs />
-                </div>
+                <Card className="rounded-2xl">
+                    <CardHeader>
+                        <HeadingSmall title="Appearance settings" description="Update your account's appearance settings" />
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                        <AppearanceTabs />
+                    </CardContent>
+                </Card>
             </SettingsLayout>
         </AppLayout>
     );

@@ -93,7 +93,6 @@ export default function Dashboard({ today, stats, recentLoans }: { today: string
             <main className="flex min-w-0 flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
                 <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                     <div>
-                        <p className="text-muted-foreground text-sm font-medium">Circulation desk</p>
                         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Library overview</h1>
                         <p className="text-muted-foreground mt-2 text-sm">A clear view of your collection and what needs attention.</p>
                     </div>
@@ -145,7 +144,7 @@ export default function Dashboard({ today, stats, recentLoans }: { today: string
                 <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(18rem,0.8fr)]">
                     <section aria-labelledby="recent-circulation-title">
                         <Card>
-                                <CardHeader className="flex-col items-start justify-between gap-2 border-b sm:flex-row sm:items-center sm:space-y-0">
+                            <CardHeader className="flex-col items-start justify-between gap-2 border-b sm:flex-row sm:items-center sm:space-y-0">
                                 <div className="space-y-1.5">
                                     <CardTitle id="recent-circulation-title" className="text-base">
                                         Recent circulation
@@ -168,14 +167,19 @@ export default function Dashboard({ today, stats, recentLoans }: { today: string
                                                 <article key={loan.id} className="min-w-0 rounded-lg border p-3">
                                                     <div className="flex min-w-0 items-start justify-between gap-3">
                                                         <div className="min-w-0">
-                                                            <Link href={`/loans/${loan.id}`} className="break-words text-sm font-medium hover:underline">
+                                                            <Link
+                                                                href={`/loans/${loan.id}`}
+                                                                className="text-sm font-medium break-words hover:underline"
+                                                            >
                                                                 {loan.book.book_title}
                                                             </Link>
-                                                            <p className="text-muted-foreground mt-1 break-words text-xs">
+                                                            <p className="text-muted-foreground mt-1 text-xs break-words">
                                                                 {loan.student.student_name} · {loan.student.student_number}
                                                             </p>
                                                         </div>
-                                                        <Badge className="shrink-0" variant={status.variant}>{status.label}</Badge>
+                                                        <Badge className="shrink-0" variant={status.variant}>
+                                                            {status.label}
+                                                        </Badge>
                                                     </div>
                                                     <p className="text-muted-foreground mt-3 text-sm">
                                                         {loan.return_date
@@ -189,45 +193,45 @@ export default function Dashboard({ today, stats, recentLoans }: { today: string
                                         })}
                                     </CardContent>
                                     <CardContent className="hidden p-0 lg:block">
-                                    <Table className="min-w-[36rem]">
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Book and student</TableHead>
-                                                <TableHead>Schedule</TableHead>
-                                                <TableHead>Status</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {recentLoans.map((loan) => {
-                                                const status = loanStatus(loan, today);
+                                        <Table className="min-w-[36rem]">
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Book and student</TableHead>
+                                                    <TableHead>Schedule</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {recentLoans.map((loan) => {
+                                                    const status = loanStatus(loan, today);
 
-                                                return (
-                                                    <TableRow key={loan.id}>
-                                                        <TableCell>
-                                                            <div className="min-w-48">
-                                                                <Link href={'/loans/' + loan.id} className="font-medium hover:underline">
-                                                                    {loan.book.book_title}
-                                                                </Link>
-                                                                <p className="text-muted-foreground mt-1 text-xs">
-                                                                    {loan.student.student_name} · {loan.student.student_number}
-                                                                </p>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-muted-foreground whitespace-nowrap">
-                                                            {loan.return_date
-                                                                ? 'Returned ' + formatDate(loan.return_date)
-                                                                : loan.issue_date.slice(0, 10) > today
-                                                                  ? 'Starts ' + formatDate(loan.issue_date)
-                                                                  : 'Due ' + formatDate(loan.due_date)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant={status.variant}>{status.label}</Badge>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                        </TableBody>
-                                    </Table>
+                                                    return (
+                                                        <TableRow key={loan.id}>
+                                                            <TableCell>
+                                                                <div className="min-w-48">
+                                                                    <Link href={'/loans/' + loan.id} className="font-medium hover:underline">
+                                                                        {loan.book.book_title}
+                                                                    </Link>
+                                                                    <p className="text-muted-foreground mt-1 text-xs">
+                                                                        {loan.student.student_name} · {loan.student.student_number}
+                                                                    </p>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="text-muted-foreground whitespace-nowrap">
+                                                                {loan.return_date
+                                                                    ? 'Returned ' + formatDate(loan.return_date)
+                                                                    : loan.issue_date.slice(0, 10) > today
+                                                                      ? 'Starts ' + formatDate(loan.issue_date)
+                                                                      : 'Due ' + formatDate(loan.due_date)}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant={status.variant}>{status.label}</Badge>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
                                     </CardContent>
                                 </>
                             ) : (

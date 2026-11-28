@@ -20,22 +20,32 @@ export default function FinesIndex({ fines, filters }: { fines: Paginated<Fine>;
         { label: 'Payment status', render: (fine) => fine.payment_status },
     ];
 
-    return <ResourceIndex
-        title="Fines"
-        path="/fines"
-        rows={fines}
-        columns={columns}
-        search={filters.search ?? ''}
-        canCreate={false}
-        headerAction={(
-            <Button variant="outline" asChild>
-                <Link href="/archives?type=fines">View Archives</Link>
-            </Button>
-        )}
-        rowAction={(fine) => fine.payment_status !== 'paid' ? null : (
-            <Button variant="outline" size="sm" asChild>
-                <Link href={`/archives/fines/${fine.id}/archive`} method="post" as="button">Archive</Link>
-            </Button>
-        )}
-    />;
+    return (
+        <ResourceIndex
+            title="Fines"
+            path="/fines"
+            rows={fines}
+            columns={columns}
+            search={filters.search ?? ''}
+            canCreate={false}
+            headerAction={
+                <Button variant="outline" asChild>
+                    <Link href="/archives?type=fines">View Archives</Link>
+                </Button>
+            }
+            rowAction={(fine) =>
+                fine.payment_status === 'paid' ? (
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={`/archives/fines/${fine.id}/archive`} method="post" as="button">
+                            Archive
+                        </Link>
+                    </Button>
+                ) : (
+                    <Button variant="outline" size="sm" disabled title="Mark the fine as paid before archiving it">
+                        Archive
+                    </Button>
+                )
+            }
+        />
+    );
 }

@@ -1,0 +1,6 @@
+import{a as l,C as t,b as c,d as n,e as o,f as d}from"./card-BwnQDJ9f.js";import{j as e,$ as x}from"./app-CCUuFgDM.js";import{A as m}from"./app-logo-BctgGUEB.js";/**
+ * @license lucide-react v0.475.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const f=[["path",{d:"M21 12a9 9 0 1 1-6.219-8.56",key:"13zald"}]],C=l("LoaderCircle",f);function u({children:s,title:a,description:r}){return e.jsx("div",{className:"bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10",children:e.jsxs("div",{className:"flex w-full max-w-md flex-col gap-6",children:[e.jsx(x,{href:route("home"),className:"focus-visible:ring-ring flex items-center gap-2 self-center rounded-md font-medium focus-visible:ring-2 focus-visible:outline-none",children:e.jsx(m,{})}),e.jsx("div",{className:"flex flex-col gap-6",children:e.jsxs(t,{className:"rounded-2xl shadow-sm",children:[e.jsxs(c,{className:"px-10 pt-8 pb-0 text-center",children:[e.jsx(n,{className:"text-xl",children:a}),e.jsx(o,{children:r})]}),e.jsx(d,{className:"px-10 py-8",children:s})]})})]})})}function g({children:s,title:a,description:r,...i}){return e.jsx(u,{title:a,description:r,...i,children:s})}export{g as A,C as L};
