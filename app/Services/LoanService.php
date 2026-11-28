@@ -165,7 +165,21 @@ class LoanService
     public function delete(Loan $loan): void
     {
         DB::transaction(function () use ($loan): void {
-            Loan::query()->whereKey($loan->getKey())->lockForUpdate()->firstOrFail()->delete();
+            $lockedLoan = Loan::query()->whereKey($loan->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($lockedLoan->return_date === null) {
+                throw ValidationException::withMessages([
+                    'loan' => 'An unreturned loan cannot be deleted. Mark the book as returned first.',
+                ]);
+            }
+
+            if ($lockedLoan->fine()->where('payment_status', 'unpaid')->exists()) {
+                throw ValidationException::withMessages([
+                    'loan' => 'A loan with an unpaid fine cannot be deleted.',
+                ]);
+            }
+
+            $lockedLoan->delete();
         });
     }
 
