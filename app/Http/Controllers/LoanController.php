@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateLoanRequest;
 use App\Models\Loan;
 use App\Services\LoanService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -16,10 +17,16 @@ class LoanController extends Controller
     {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+        $search = isset($validated['search']) ? trim(strip_tags($validated['search'])) : null;
+
         return Inertia::render('loans/index', [
-            'loans' => $this->service->index(),
+            'loans' => $this->service->index($search),
+            'filters' => ['search' => $search ?? ''],
         ]);
     }
 
@@ -46,7 +53,7 @@ class LoanController extends Controller
     {
         return Inertia::render('loans/form', array_merge(
             ['loan' => $loan],
-            $this->service->formOptions(),
+            $this->service->formOptions($loan),
         ));
     }
 

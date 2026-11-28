@@ -38,7 +38,7 @@ class StoreStudentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'student_number' => ['required', 'string', 'not_in:USR-', 'max:20', Rule::unique('students', 'student_number')],
+            'student_number' => ['required', 'string', 'max:20', 'regex:/^USR-\d+$/', Rule::unique('students', 'student_number')],
             'student_name' => [
                 'required', 'string', 'max:255',
                 function (string $attribute, mixed $value, Closure $fail): void {
@@ -125,8 +125,8 @@ class StoreStudentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'student_number.required' => 'Enter the student number.',
-            'student_number.not_in' => 'Enter the student number after the USR- prefix.',
+            'student_number.required' => 'Choose an automatically generated student number.',
+            'student_number.regex' => 'Choose one of the generated USR student numbers.',
             'student_number.unique' => 'That student number is already in use.',
             'student_name.required' => 'Enter the student name.',
             'student_email.required' => 'Enter the student email.',

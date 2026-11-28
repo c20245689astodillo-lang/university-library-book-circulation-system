@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 
+use App\Models\Loan;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,7 +19,12 @@ class UpdateLoanRequest extends FormRequest
 
     public function rules(): array
     {
-
+        $loan = $this->route('loan');
+        $earliestIssueDate = $loan instanceof Loan
+            ? $loan->issue_date->toDateString()
+            : today()->toDateString();
+        $existingDueDate = $loan instanceof Loan ? $loan->due_date->toDateString() : null;
+        $existingIssueDate = $loan instanceof Loan ? $loan->issue_date->toDateString() : null;
 
         return [
             'student_id' => ['required', 'integer', Rule::exists('students', 'id')],
@@ -26,7 +32,7 @@ class UpdateLoanRequest extends FormRequest
             'issue_date' => [
                 'required',
                 'date_format:Y-m-d',
-                'after_or_equal:today',
+                'after_or_equal:'.$earliestIssueDate,
                 'before_or_equal:'.today()->addDays(5)->toDateString(),
             ],
             'due_date' => [
@@ -35,8 +41,10 @@ class UpdateLoanRequest extends FormRequest
                 'after_or_equal:issue_date',
                 $this->withinDaysAfter(
                     $this->input('issue_date'),
-                    14,
-                    'The due date cannot be more than 14 days after the issue date.',
+                    10,
+                    'The due date cannot be more than 10 days after the issue date.',
+                    $existingDueDate,
+                    $existingIssueDate,
                 ),
             ],
             'return_date' => [
@@ -58,7 +66,7 @@ class UpdateLoanRequest extends FormRequest
             'book_id.exists' => 'Choose a book that exists.',
             'issue_date.required' => 'Enter the issue date.',
             'issue_date.date_format' => 'Enter the issue date in YYYY-MM-DD format.',
-            'issue_date.after_or_equal' => 'The issue date cannot be in the past.',
+            'issue_date.after_or_equal' => 'The issue date cannot be earlier than its existing date.',
             'issue_date.before_or_equal' => 'Choose an issue date within the next five days.',
             'due_date.required' => 'Enter the due date.',
             'due_date.date_format' => 'Enter the due date in YYYY-MM-DD format.',
@@ -71,10 +79,26 @@ class UpdateLoanRequest extends FormRequest
         ];
     }
 
-    private function withinDaysAfter(mixed $anchorDate, int $days, string $message): Closure
+    private function withinDaysAfter(
+        mixed $anchorDate,
+        int $days,
+        string $message,
+        ?string $allowedExistingValue = null,
+        ?string $allowedExistingAnchor = null,
+    ): Closure
     {
-        return function (string $attribute, mixed $value, Closure $fail) use ($anchorDate, $days, $message): void {
+        return function (string $attribute, mixed $value, Closure $fail) use (
+            $anchorDate,
+            $days,
+            $message,
+            $allowedExistingValue,
+            $allowedExistingAnchor,
+        ): void {
             if (! is_string($anchorDate) || ! is_string($value)) {
+                return;
+            }
+
+            if ($value === $allowedExistingValue && $anchorDate === $allowedExistingAnchor) {
                 return;
             }
 

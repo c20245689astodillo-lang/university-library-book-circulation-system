@@ -32,8 +32,8 @@ class StoreLoanRequest extends FormRequest
                 'after_or_equal:issue_date',
                 $this->withinDaysAfter(
                     $this->input('issue_date'),
-                    14,
-                    'The due date cannot be more than 14 days after the issue date.',
+                    10,
+                    'The due date cannot be more than 10 days after the issue date.',
                 ),
             ],
             'return_date' => [

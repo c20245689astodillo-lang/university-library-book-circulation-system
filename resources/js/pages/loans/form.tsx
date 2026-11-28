@@ -1,6 +1,6 @@
 import ResourceForm, { type FormField, type FormValue } from '@/components/library/resource-form';
 
-type StudentOption = { id: number; student_number: string; student_name: string };
+type StudentOption = { id: number; student_number: string; student_name: string; active_loan_count: number; disabled?: boolean };
 type BookOption = { id: number; book_isbn: string; book_title: string };
 type Loan = {
     id: number;
@@ -30,7 +30,7 @@ export default function LoanForm({ loan, students, books, today }: Props) {
         student_id: loan?.student_id ?? '',
         book_id: loan?.book_id ?? '',
         issue_date: initialIssueDate,
-        due_date: loan?.due_date ?? addDays(initialIssueDate, 14),
+        due_date: loan?.due_date ?? addDays(initialIssueDate, 10),
         return_date: loan?.return_date ?? '',
         fine_per_day: loan?.fine_per_day ?? 0,
     };
@@ -40,13 +40,18 @@ export default function LoanForm({ loan, students, books, today }: Props) {
             label: 'Student',
             type: 'select',
             required: true,
-            options: students.map((student) => ({ value: student.id, label: `${student.student_name} (${student.student_number})` })),
+            options: students.map((student) => ({
+                value: student.id,
+                label: `${student.student_name} (${student.student_number})${student.disabled ? ` — limit reached (${student.active_loan_count} active loans)` : ''}`,
+                disabled: student.disabled,
+            })),
         },
         {
             name: 'book_id',
             label: 'Book',
             type: 'select',
             required: true,
+            emptyMessage: 'No books are available; all are currently reserved or on loan.',
             options: books.map((book) => ({ value: book.id, label: `${book.book_title} (${book.book_isbn})` })),
         },
         {
@@ -54,20 +59,34 @@ export default function LoanForm({ loan, students, books, today }: Props) {
             label: 'Issue date',
             type: 'date',
             required: true,
-            min: today,
+            min: loan?.issue_date.slice(0, 10) ?? today,
             max: addDays(today, 5),
-            dateOffset: loan ? undefined : { target: 'due_date', days: 14 },
+            dateOffset: { target: 'due_date', days: 10 },
         },
         {
             name: 'due_date',
             label: 'Due date',
             type: 'date',
             required: true,
+            min: loan ? undefined : today,
+            minFrom: 'issue_date',
+            maxDateOffset: {
+                source: 'issue_date',
+                days: 10,
+                preserveValue: loan
+                    ? { value: loan.due_date.slice(0, 10), whenSourceEquals: loan.issue_date.slice(0, 10) }
+                    : undefined,
+            },
+        },
+        {
+            name: 'return_date',
+            label: 'Return date',
+            type: 'date',
             min: today,
             minFrom: 'issue_date',
-            maxDateOffset: { source: 'issue_date', days: 14 },
+            max: today,
+            todayAction: { label: 'Mark returned today', value: today, disabledUntilField: 'issue_date' },
         },
-        { name: 'return_date', label: 'Return date', type: 'date', min: today, minFrom: 'issue_date', max: today },
         { name: 'fine_per_day', label: 'Fine per overdue day', type: 'number', required: true, max: 999999.99, decimalPlaces: 2 },
     ];
 

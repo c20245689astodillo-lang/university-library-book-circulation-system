@@ -10,7 +10,7 @@ type Loan = {
     fine: { calculated_fine: string | number; payment_status: string } | null;
 };
 
-export default function LoansIndex({ loans }: { loans: Paginated<Loan> }) {
+export default function LoansIndex({ loans, filters }: { loans: Paginated<Loan>; filters: { search?: string } }) {
     const columns: ResourceColumn<Loan>[] = [
         { label: 'Student', render: (loan) => `${loan.student.student_name} (${loan.student.student_number})` },
         { label: 'Book', render: (loan) => `${loan.book.book_title} (${loan.book.book_isbn})` },
@@ -20,5 +20,5 @@ export default function LoansIndex({ loans }: { loans: Paginated<Loan> }) {
         { label: 'Fine', render: (loan) => loan.fine ? `${loan.fine.calculated_fine} (${loan.fine.payment_status})` : '—' },
     ];
 
-    return <ResourceIndex title="Loans" path="/loans" rows={loans} columns={columns} />;
+    return <ResourceIndex title="Loans" path="/loans" rows={loans} columns={columns} search={filters.search ?? ''} />;
 }

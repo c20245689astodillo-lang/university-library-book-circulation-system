@@ -38,12 +38,12 @@ class UpdateBookRequest extends FormRequest
         return [
             'publisher_id' => ['required', 'integer', Rule::exists('publishers', 'id')],
             'book_isbn' => [
-                'required', 'string', 'max:20', 'regex:/^(?:[0-9]{3}-[0-9]{4}|[0-9]+(?:-[0-9]+)*(?:-?X)?)$/i',
+                'required', 'string', 'max:20', 'regex:/^(?:[0-9]{1,3}-[0-9]{1,4}|[0-9]+(?:-[0-9]+)*(?:-?X)?)$/i',
                 $this->isbnRule(),
                 Rule::unique('books', 'book_isbn')->ignore($book?->id),
             ],
             'book_title' => ['required', 'string', 'max:255', $this->bookTitleRule(), $this->uniqueTitleRule($book instanceof Book ? $book : null)],
-            'author_name' => ['required', 'string', 'max:255', $this->authorNameRule()],
+            'author_name' => ['required', 'string', 'max:255', $this->authorNameRule(), $this->uniqueAuthorRule($book instanceof Book ? $book : null)],
         ];
     }
 
@@ -55,7 +55,7 @@ class UpdateBookRequest extends FormRequest
             'book_isbn.required' => 'Enter the book ISBN.',
             'book_isbn.string' => 'The ISBN must be text.',
             'book_isbn.max' => 'The ISBN may not be longer than 20 characters.',
-            'book_isbn.regex' => 'Enter a project code such as 568-0012 or an ISBN with optional hyphens.',
+            'book_isbn.regex' => 'Enter a project code with 1 to 3 digits before the hyphen and 1 to 4 after, such as 789-90 or 568-0012, or a valid ISBN.',
             'book_isbn.unique' => 'That ISBN is already assigned to another book.',
             'book_title.required' => 'Enter the book title.',
             'book_title.string' => 'The book title must be text.',
@@ -69,7 +69,7 @@ class UpdateBookRequest extends FormRequest
     private function isbnRule(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail): void {
-            if (! is_string($value) || preg_match('/^\d{3}-\d{4}$/', $value) === 1) {
+            if (! is_string($value) || preg_match('/^\d{1,3}-\d{1,4}$/', $value) === 1) {
                 return;
             }
 
@@ -98,7 +98,7 @@ class UpdateBookRequest extends FormRequest
                 }
             }
 
-            $fail('Enter a project code such as 568-0012 or a valid ISBN-10/13 with a correct check digit.');
+            $fail('Enter a project code with 1 to 3 digits before the hyphen and 1 to 4 after, such as 789-90 or 568-0012, or a valid ISBN-10/13 with a correct check digit.');
         };
     }
 
@@ -146,6 +146,18 @@ class UpdateBookRequest extends FormRequest
                 return;
             }
 
+            if (preg_match('~(\p{N})\1{2,}~u', $value) === 1) {
+                $fail('The title cannot repeat the same digit three or more times in a row.');
+
+                return;
+            }
+
+            if ($this->hasLongNumber($value)) {
+                $fail('Numbers in the title may not contain more than three digits in a row.');
+
+                return;
+            }
+
             if ($this->hasSuspiciousLetterSequence($value)) {
                 $fail('The title contains an unusual letter sequence; check it for typing errors.');
             }
@@ -173,6 +185,27 @@ class UpdateBookRequest extends FormRequest
         };
     }
 
+    private function uniqueAuthorRule(?Book $book): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($book): void {
+            if (! is_string($value)) {
+                return;
+            }
+
+            $normalizedAuthor = mb_strtolower($value, 'UTF-8');
+
+            $query = Book::query()->whereRaw('LOWER(author_name) = ?', [$normalizedAuthor]);
+
+            if ($book) {
+                $query->where('id', '!=', $book->getKey());
+            }
+
+            if ($query->exists()) {
+                $fail('The author "'.$value.'" already exists. Enter a different author.');
+            }
+        };
+    }
+
     private function hasSuspiciousLetterSequence(string $value): bool
     {
         $words = preg_split('~[^\p{L}\p{M}]+~u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
@@ -195,4 +228,10 @@ class UpdateBookRequest extends FormRequest
 
         return false;
     }
+
+    private function hasLongNumber(string $value): bool
+    {
+        return preg_match('~\p{N}{4,}~u', $value) === 1;
+    }
+
 }

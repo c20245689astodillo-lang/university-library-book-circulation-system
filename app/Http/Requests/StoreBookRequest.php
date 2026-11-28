@@ -15,7 +15,7 @@ class StoreBookRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        foreach (['book_isbn', 'book_title', 'author_name'] as $field) {
+        foreach (['book_title', 'author_name'] as $field) {
             $value = $this->input($field);
 
             if (is_string($value)) {
@@ -25,7 +25,7 @@ class StoreBookRequest extends FormRequest
                     $normalized = mb_convert_case($normalized, MB_CASE_TITLE, 'UTF-8');
                 }
 
-                $this->merge([$field => $field === 'book_isbn' ? strtoupper($normalized) : $normalized]);
+                $this->merge([$field => $normalized]);
             }
         }
     }
@@ -34,13 +34,9 @@ class StoreBookRequest extends FormRequest
     {
         return [
             'publisher_id' => ['required', 'integer', Rule::exists('publishers', 'id')],
-            'book_isbn' => [
-                'required', 'string', 'max:20', 'regex:/^(?:[0-9]{3}-[0-9]{4}|[0-9]+(?:-[0-9]+)*(?:-?X)?)$/i',
-                $this->isbnRule(),
-                Rule::unique('books', 'book_isbn'),
-            ],
+            'book_isbn' => ['required', 'string', 'max:20', 'regex:/^100-\d{3,4}$/', Rule::unique('books', 'book_isbn')],
             'book_title' => ['required', 'string', 'max:255', $this->bookTitleRule(), $this->uniqueTitleRule()],
-            'author_name' => ['required', 'string', 'max:255', $this->authorNameRule()],
+            'author_name' => ['required', 'string', 'max:255', $this->authorNameRule(), $this->uniqueAuthorRule()],
         ];
     }
 
@@ -49,11 +45,11 @@ class StoreBookRequest extends FormRequest
         return [
             'publisher_id.required' => 'Choose a publisher for the book.',
             'publisher_id.exists' => 'Choose a publisher that exists.',
-            'book_isbn.required' => 'Enter the book ISBN.',
-            'book_isbn.string' => 'The ISBN must be text.',
-            'book_isbn.max' => 'The ISBN may not be longer than 20 characters.',
-            'book_isbn.regex' => 'Enter a project code such as 568-0012 or an ISBN with optional hyphens.',
-            'book_isbn.unique' => 'That ISBN is already assigned to another book.',
+            'book_isbn.required' => 'Choose an automatically generated book code.',
+            'book_isbn.string' => 'The book code must be text.',
+            'book_isbn.max' => 'The book code may not be longer than 20 characters.',
+            'book_isbn.regex' => 'Choose one of the generated book codes.',
+            'book_isbn.unique' => 'That book code is already assigned. Refresh the page and choose another option.',
             'book_title.required' => 'Enter the book title.',
             'book_title.string' => 'The book title must be text.',
             'book_title.max' => 'The book title may not be longer than 255 characters.',
@@ -61,42 +57,6 @@ class StoreBookRequest extends FormRequest
             'author_name.string' => 'The author name must be text.',
             'author_name.max' => 'The author name may not be longer than 255 characters.',
         ];
-    }
-
-    private function isbnRule(): Closure
-    {
-        return function (string $attribute, mixed $value, Closure $fail): void {
-            if (! is_string($value) || preg_match('/^\d{3}-\d{4}$/', $value) === 1) {
-                return;
-            }
-
-            $isbn = strtoupper(str_replace('-', '', $value));
-
-            if (preg_match('/^\d{9}[\dX]$/', $isbn) === 1) {
-                $sum = 0;
-
-                for ($index = 0; $index < 10; $index++) {
-                    $digit = $isbn[$index] === 'X' ? 10 : (int) $isbn[$index];
-                    $sum += $digit * (10 - $index);
-                }
-
-                if ($sum % 11 === 0) {
-                    return;
-                }
-            } elseif (preg_match('/^(978|979)\d{10}$/', $isbn) === 1) {
-                $sum = 0;
-
-                for ($index = 0; $index < 12; $index++) {
-                    $sum += (int) $isbn[$index] * ($index % 2 === 0 ? 1 : 3);
-                }
-
-                if ((10 - ($sum % 10)) % 10 === (int) $isbn[12]) {
-                    return;
-                }
-            }
-
-            $fail('Enter a project code such as 568-0012 or a valid ISBN-10/13 with a correct check digit.');
-        };
     }
 
     private function authorNameRule(): Closure
@@ -143,6 +103,18 @@ class StoreBookRequest extends FormRequest
                 return;
             }
 
+            if (preg_match('~(\p{N})\1{2,}~u', $value) === 1) {
+                $fail('The title cannot repeat the same digit three or more times in a row.');
+
+                return;
+            }
+
+            if ($this->hasLongNumber($value)) {
+                $fail('Numbers in the title may not contain more than three digits in a row.');
+
+                return;
+            }
+
             if ($this->hasSuspiciousLetterSequence($value)) {
                 $fail('The title contains an unusual letter sequence; check it for typing errors.');
             }
@@ -162,6 +134,23 @@ class StoreBookRequest extends FormRequest
 
             if ($exists) {
                 $fail('The title "'.$value.'" already exists. Enter a different title.');
+            }
+        };
+    }
+
+    private function uniqueAuthorRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_string($value)) {
+                return;
+            }
+
+            $exists = \App\Models\Book::query()
+                ->whereRaw('LOWER(author_name) = ?', [mb_strtolower($value, 'UTF-8')])
+                ->exists();
+
+            if ($exists) {
+                $fail('The author "'.$value.'" already exists. Enter a different author.');
             }
         };
     }
@@ -188,4 +177,10 @@ class StoreBookRequest extends FormRequest
 
         return false;
     }
+
+    private function hasLongNumber(string $value): bool
+    {
+        return preg_match('~\p{N}{4,}~u', $value) === 1;
+    }
+
 }

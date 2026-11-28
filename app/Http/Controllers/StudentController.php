@@ -19,15 +19,26 @@ class StudentController extends Controller
 
     public function index(Request $request): Response
     {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+        $search = isset($validated['search']) ? trim(strip_tags($validated['search'])) : null;
+
         return Inertia::render('students/index', [
-            'students' => $this->service->index(),
+            'students' => $this->service->index($search),
             'currentStudentId' => $request->user()->libraryStudent()?->id,
+            'filters' => ['search' => $search ?? ''],
         ]);
     }
 
     public function create(): Response
     {
-        return Inertia::render('students/form');
+        $studentNumberOptions = $this->service->nextAvailableStudentNumbers(5);
+
+        return Inertia::render('students/form', [
+            'suggestedStudentNumber' => $studentNumberOptions[0],
+            'studentNumberOptions' => $studentNumberOptions,
+        ]);
     }
 
     public function store(StoreStudentRequest $request): RedirectResponse

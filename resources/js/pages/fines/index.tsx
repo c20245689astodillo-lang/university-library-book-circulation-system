@@ -10,7 +10,7 @@ type Fine = {
     };
 };
 
-export default function FinesIndex({ fines }: { fines: Paginated<Fine> }) {
+export default function FinesIndex({ fines, filters }: { fines: Paginated<Fine>; filters: { search?: string } }) {
     const columns: ResourceColumn<Fine>[] = [
         { label: 'Student', render: (fine) => `${fine.loan.student.student_name} (${fine.loan.student.student_number})` },
         { label: 'Book', render: (fine) => `${fine.loan.book.book_title} (${fine.loan.book.book_isbn})` },
@@ -18,5 +18,5 @@ export default function FinesIndex({ fines }: { fines: Paginated<Fine> }) {
         { label: 'Payment status', render: (fine) => fine.payment_status },
     ];
 
-    return <ResourceIndex title="Fines" path="/fines" rows={fines} columns={columns} canCreate={false} />;
+    return <ResourceIndex title="Fines" path="/fines" rows={fines} columns={columns} search={filters.search ?? ''} canCreate={false} />;
 }

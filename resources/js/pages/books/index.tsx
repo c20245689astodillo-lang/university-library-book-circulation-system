@@ -8,7 +8,7 @@ type Book = {
     publisher: { publisher_name: string } | null;
 };
 
-export default function BooksIndex({ books }: { books: Paginated<Book> }) {
+export default function BooksIndex({ books, filters }: { books: Paginated<Book>; filters: { search?: string } }) {
     const columns: ResourceColumn<Book>[] = [
         { label: 'ISBN / Book code', render: (book) => book.book_isbn },
         { label: 'Title', render: (book) => book.book_title },
@@ -16,5 +16,5 @@ export default function BooksIndex({ books }: { books: Paginated<Book> }) {
         { label: 'Publisher', render: (book) => book.publisher?.publisher_name ?? '—' },
     ];
 
-    return <ResourceIndex title="Books" path="/books" rows={books} columns={columns} />;
+    return <ResourceIndex title="Books" path="/books" rows={books} columns={columns} search={filters.search ?? ''} />;
 }

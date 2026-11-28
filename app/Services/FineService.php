@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 class FineService
 {
-    public function index(): LengthAwarePaginator
+    public function index(?string $search = null): LengthAwarePaginator
     {
         return Fine::query()
             ->select(['id', 'loan_id', 'calculated_fine', 'payment_status'])
@@ -18,9 +18,24 @@ class FineService
                 'loan.student:id,student_number,student_name',
                 'loan.book:id,book_isbn,book_title',
             ])
+            ->when($search !== null && $search !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query->where('payment_status', 'like', '%'.$search.'%')
+                        ->orWhere('calculated_fine', 'like', '%'.$search.'%')
+                        ->orWhereHas('loan.student', function ($student) use ($search): void {
+                            $student->where('student_number', 'like', '%'.$search.'%')
+                                ->orWhere('student_name', 'like', '%'.$search.'%');
+                        })
+                        ->orWhereHas('loan.book', function ($book) use ($search): void {
+                            $book->where('book_isbn', 'like', '%'.$search.'%')
+                                ->orWhere('book_title', 'like', '%'.$search.'%');
+                        });
+                });
+            })
             ->latest('created_at')
             ->latest('id')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
     }
 
     public function show(Fine $fine): Fine

@@ -26,31 +26,88 @@ class StudentService
                 return $student;
             }
 
+            $this->lockStudentNumberSequence();
+
             return Student::query()->firstOrCreate(
                 ['student_email' => $email],
                 [
-                    'student_number' => $this->availableAccountStudentNumber($user->id),
+                    'student_number' => $this->nextAvailableStudentNumber(),
                     'student_name' => trim($user->name),
                 ],
             );
         });
     }
 
-    public function index(): LengthAwarePaginator
+    public function index(?string $search = null): LengthAwarePaginator
     {
+        $studentNumberSort = DB::connection()->getDriverName() === 'mysql'
+            ? 'CAST(SUBSTRING(student_number, 5) AS UNSIGNED)'
+            : 'CAST(SUBSTR(student_number, 5) AS INTEGER)';
+
         return Student::query()
             ->select(['id', 'student_number', 'student_name', 'student_email'])
             ->withCount('loans')
-            ->latest('created_at')
-            ->latest('id')
-            ->paginate(10);
+            ->when($search !== null && $search !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query->where('student_number', 'like', '%'.$search.'%')
+                        ->orWhere('student_name', 'like', '%'.$search.'%')
+                        ->orWhere('student_email', 'like', '%'.$search.'%');
+                });
+            })
+            ->orderByRaw($studentNumberSort)
+            ->orderBy('id')
+            ->paginate(10)
+            ->withQueryString();
+    }
+
+    public function nextAvailableStudentNumbers(int $limit = 5): array
+    {
+        $lastNumber = 0;
+
+        foreach (Student::query()->pluck('student_number') as $studentNumber) {
+            if (preg_match('/^USR-(\d+)$/i', (string) $studentNumber, $matches) === 1) {
+                $lastNumber = max($lastNumber, (int) $matches[1]);
+            }
+        }
+
+        $numbers = [];
+
+        for ($number = $lastNumber + 1; count($numbers) < $limit; $number++) {
+            $studentNumber = 'USR-'.$number;
+
+            if (strlen($studentNumber) > 20) {
+                break;
+            }
+
+            $numbers[] = $studentNumber;
+        }
+
+        if ($numbers !== []) {
+            return $numbers;
+        }
+
+        throw ValidationException::withMessages([
+            'student_number' => 'All automatically generated student numbers are in use.',
+        ]);
     }
 
     public function create(array $data): Student
     {
         $data = $this->sanitize($data);
+        $selectedNumber = $data['student_number'] ?? null;
+        unset($data['student_number']);
 
-        return DB::transaction(function () use ($data): Student {
+        return DB::transaction(function () use ($data, $selectedNumber): Student {
+            $this->lockStudentNumberSequence();
+            $availableNumbers = $this->nextAvailableStudentNumbers();
+
+            if ($selectedNumber !== null && $selectedNumber !== $availableNumbers[0]) {
+                throw ValidationException::withMessages([
+                    'student_number' => 'Choose the next student number in order. Refresh the page to get the current number.',
+                ]);
+            }
+
+            $data['student_number'] = $selectedNumber ?? $availableNumbers[0];
             $student = Student::create($data);
 
             User::create([
@@ -120,18 +177,14 @@ class StudentService
         });
     }
 
-    private function availableAccountStudentNumber(int $userId): string
+    private function nextAvailableStudentNumber(): string
     {
-        $base = 'USR-'.$userId;
-        $studentNumber = substr($base, 0, 20);
-        $suffix = 1;
+        return $this->nextAvailableStudentNumbers(1)[0];
+    }
 
-        while (Student::query()->where('student_number', $studentNumber)->exists()) {
-            $ending = '-'.$suffix++;
-            $studentNumber = substr($base, 0, 20 - strlen($ending)).$ending;
-        }
-
-        return $studentNumber;
+    private function lockStudentNumberSequence(): void
+    {
+        User::query()->orderBy('id')->lockForUpdate()->firstOrFail();
     }
 
     private function sanitize(array $data): array

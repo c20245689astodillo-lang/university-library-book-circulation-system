@@ -1,4 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Head, Link, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import type { SharedData } from '@/types';
@@ -37,9 +39,9 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
         <AppLayout breadcrumbs={[{ title, href: path }]}>
             <Head title={title} />
 
-            <main className="flex flex-col gap-6 p-4">
+            <main className="flex min-w-0 flex-col gap-6 p-4 sm:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                         <h1 className="text-2xl font-semibold">{title}</h1>
                         <p className="text-muted-foreground mt-1 text-sm">Manage {title.toLowerCase()} in the library.</p>
                     </div>
@@ -51,19 +53,19 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                 </header>
 
                 {search !== undefined && (
-                    <form method="get" action={path} className="flex max-w-xl flex-wrap gap-2">
-                        <input
+                    <form method="get" action={path} className="flex w-full max-w-3xl flex-wrap items-center gap-2">
+                        <Input
                             type="search"
                             name="search"
                             defaultValue={search}
                             placeholder={`Search ${title.toLowerCase()}...`}
                             aria-label={`Search ${title.toLowerCase()}`}
-                            className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                            className="min-w-0 flex-1 text-sm"
                         />
-                        <button type="submit" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                        <Button type="submit">
                             Search
-                        </button>
-                        {search && <Link href={path} className="rounded-md border px-4 py-2 text-sm">Clear</Link>}
+                        </Button>
+                        {search && <Button variant="outline" asChild><Link href={path}>Clear</Link></Button>}
                     </form>
                 )}
 
@@ -74,8 +76,32 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                     </p>
                 ))}
 
-                <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-left text-sm">
+                <div className="grid gap-3 xl:hidden">
+                    {rows.data.length ? rows.data.map((row) => (
+                        <article key={row.id} className="min-w-0 rounded-lg border p-4">
+                            <dl className="space-y-3">
+                                {columns.map((column) => (
+                                    <div key={column.label} className="grid grid-cols-[minmax(5.5rem,0.38fr)_minmax(0,1fr)] gap-3 text-sm">
+                                        <dt className="text-muted-foreground">{column.label}</dt>
+                                        <dd className="min-w-0 break-words">{column.render(row)}</dd>
+                                    </div>
+                                ))}
+                            </dl>
+                            {(!canEdit || canEdit(row)) && (
+                                <div className="mt-4 border-t pt-3">
+                                    <Link className="underline underline-offset-4" href={`${path}/${row.id}/edit`}>Edit</Link>
+                                </div>
+                            )}
+                        </article>
+                    )) : (
+                        <p className="text-muted-foreground rounded-lg border px-4 py-8 text-center">
+                            No {title.toLowerCase()} found.
+                        </p>
+                    )}
+                </div>
+
+                <div className="hidden overflow-x-auto rounded-lg border xl:block">
+                    <table className="w-full min-w-[52rem] text-left text-sm">
                         <thead className="bg-muted/50 text-muted-foreground">
                             <tr>
                                 {columns.map((column) => (
@@ -88,7 +114,7 @@ export default function ResourceIndex<T extends { id: number }>({ title, path, r
                             {rows.data.length ? rows.data.map((row) => (
                                 <tr key={row.id}>
                                     {columns.map((column) => (
-                                        <td key={column.label} className="px-4 py-3">{column.render(row)}</td>
+                                        <td key={column.label} className="max-w-xs break-words px-4 py-3">{column.render(row)}</td>
                                     ))}
                                     <td className="whitespace-nowrap px-4 py-3">
                                         {(!canEdit || canEdit(row)) && (

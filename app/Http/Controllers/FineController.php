@@ -6,6 +6,7 @@ use App\Http\Requests\UpdateFineRequest;
 use App\Models\Fine;
 use App\Services\FineService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,10 +16,16 @@ class FineController extends Controller
     {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+        $search = isset($validated['search']) ? trim(strip_tags($validated['search'])) : null;
+
         return Inertia::render('fines/index', [
-            'fines' => $this->service->index(),
+            'fines' => $this->service->index($search),
+            'filters' => ['search' => $search ?? ''],
         ]);
     }
 

@@ -41,14 +41,8 @@ class StorePublisherRequest extends FormRequest
             return;
         }
 
-        if (preg_match('~^(?=.*\p{L})[\p{L}\p{M}\d&.,\'’() \-]+$~u', $value) !== 1) {
-            $fail('Enter a publisher name using letters and common name punctuation.');
-
-            return;
-        }
-
-        if (preg_match('~\p{L}\p{M}*\d~u', $value) === 1) {
-            $fail('Do not append digits directly to a word in the publisher name.');
+        if (preg_match('~^(?=.*\p{L})[\p{L}\p{M}&.,\'’() \-]+$~u', $value) !== 1) {
+            $fail('Enter a publisher name using letters, spaces, and common punctuation only. Numbers are not allowed.');
 
             return;
         }
@@ -65,9 +59,7 @@ class StorePublisherRequest extends FormRequest
             return;
         }
 
-        if (preg_match('~\d{4,}~u', $value) === 1) {
-            $fail('The publisher name cannot contain four or more consecutive digits.');
-        }
+       
     }
 
     private function hasScrambledConsonantRun(string $value): bool

@@ -1,19 +1,31 @@
 import ResourceForm, { type FormField, type FormValue } from '@/components/library/resource-form';
 
 type Student = { id: number; student_number: string; student_name: string; student_email: string };
+type Props = { student?: Student; suggestedStudentNumber?: string; studentNumberOptions?: string[] };
 
-export default function StudentForm({ student }: { student?: Student }) {
+export default function StudentForm({ student, suggestedStudentNumber, studentNumberOptions = [] }: Props) {
     const editing = Boolean(student);
     const path = '/students';
     const action = student ? `${path}/${student.id}` : path;
     const values: Record<string, FormValue> = {
-        student_number: student?.student_number ?? 'USR-',
+        student_number: student?.student_number ?? suggestedStudentNumber ?? '',
         student_name: student?.student_name ?? '',
         student_email: student?.student_email ?? '',
         password_confirmation: '',
     };
     const fields: FormField[] = [
-        { name: 'student_number', label: 'Student number', required: true, maxLength: 20 },
+        {
+            name: 'student_number',
+            label: 'Student number',
+            type: editing ? 'text' : 'select',
+            required: true,
+            readOnly: !editing,
+            maxLength: 20,
+            description: editing ? undefined : 'Choose the next generated number to keep student numbers in order.',
+            options: !editing
+                ? studentNumberOptions.map((number, index) => ({ value: number, label: number, disabled: index > 0 }))
+                : undefined,
+        },
         { name: 'student_name', label: 'Full name', required: true, maxLength: 255 },
         {
             name: 'student_email',

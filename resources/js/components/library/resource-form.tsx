@@ -8,6 +8,7 @@ export type FormValue = string | number | null;
 export type SelectOption = {
     value: string | number;
     label: string;
+    disabled?: boolean;
 };
 
 export type FormField = {
@@ -16,6 +17,7 @@ export type FormField = {
     type?: 'text' | 'email' | 'date' | 'number' | 'password' | 'select';
     required?: boolean;
     disabled?: boolean;
+    readOnly?: boolean;
     pattern?: string;
     title?: string;
     description?: string;
@@ -24,9 +26,10 @@ export type FormField = {
     min?: string | number;
     minFrom?: string;
     max?: string | number;
-    maxDateOffset?: { source: string; days: number };
+    maxDateOffset?: { source: string; days: number; preserveValue?: { value: string; whenSourceEquals: string } };
     decimalPlaces?: number;
     dateOffset?: { target: string; days: number };
+    todayAction?: { label: string; value: string; disabledUntilField?: string };
     emptyMessage?: string;
     options?: SelectOption[];
 };
@@ -81,16 +84,31 @@ export default function ResourceForm({ title, path, action, method, values, fiel
         >
             <Head title={title} />
 
-            <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
-                <h1 className="text-2xl font-semibold">{title}</h1>
+            <main className="mx-auto flex min-w-0 w-full max-w-2xl flex-col gap-6 p-4 sm:p-6">
+                <h1 className="text-xl font-semibold sm:text-2xl">{title}</h1>
 
-                <form onSubmit={submit} className="flex flex-col gap-5 rounded-lg border p-5">
+                <form onSubmit={submit} className="flex min-w-0 flex-col gap-5 rounded-lg border p-4 sm:p-5">
                     {fields.map((field) => {
                         const rawValue = form.data[field.name] ?? '';
                         const value = field.type === 'date' ? String(rawValue).slice(0, 10) : rawValue;
                         const error = form.errors[field.name];
                         const hasOptions = Boolean(field.options?.length);
                         const selectedOption = field.options?.find((option) => String(option.value) === String(value)) ?? null;
+                        const todayAction = field.todayAction;
+                        const todayActionDisabled =
+                            todayAction?.disabledUntilField !== undefined &&
+                            String(form.data[todayAction.disabledUntilField] ?? '') > todayAction.value;
+                        const calculatedMaximum = field.maxDateOffset
+                            ? addDays(String(form.data[field.maxDateOffset.source] ?? ''), field.maxDateOffset.days)
+                            : undefined;
+                        const preservedMaximum =
+                            field.maxDateOffset?.preserveValue &&
+                            String(form.data[field.maxDateOffset.source] ?? '') === field.maxDateOffset.preserveValue.whenSourceEquals
+                                ? field.maxDateOffset.preserveValue.value
+                                : undefined;
+                        const maximum = field.maxDateOffset
+                            ? [calculatedMaximum, preservedMaximum].filter((date): date is string => Boolean(date)).sort().at(-1)
+                            : field.max;
                         const minimum = field.minFrom
                             ? [String(form.data[field.minFrom] ?? ''), field.min === undefined ? '' : String(field.min)].filter(Boolean).sort().at(-1)
                             : (field.min ?? (field.type === 'number' ? 0 : undefined));
@@ -109,12 +127,16 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                         disabled={!hasOptions || field.disabled}
                                         itemToStringLabel={(option) => option.label}
                                         itemToStringValue={(option) => String(option.value)}
-                                        onValueChange={(option) => form.setData(field.name, option?.value ?? '')}
+                                        onValueChange={(option) => {
+                                            form.setData(field.name, option?.value ?? '');
+                                            form.clearErrors(field.name);
+                                        }}
                                     >
                                         <ComboboxInput
                                             id={field.name}
                                             aria-label={field.label}
-                                            className="w-full"
+                                            className="w-full min-w-0"
+                                            readOnly={field.readOnly}
                                             placeholder={
                                                 hasOptions ? `Choose ${field.label.toLowerCase()}` : `No ${field.label.toLowerCase()} available`
                                             }
@@ -123,7 +145,7 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                             <ComboboxEmpty>No matching {field.label.toLowerCase()} found.</ComboboxEmpty>
                                             <ComboboxList>
                                                 {(option: SelectOption) => (
-                                                    <ComboboxItem key={option.value} value={option}>
+                                                        <ComboboxItem key={option.value} value={option} disabled={option.disabled}>
                                                         {option.label}
                                                     </ComboboxItem>
                                                 )}
@@ -143,11 +165,7 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                         autoComplete={field.autoComplete}
                                         maxLength={field.maxLength}
                                         min={minimum}
-                                        max={
-                                            field.maxDateOffset
-                                                ? addDays(String(form.data[field.maxDateOffset.source] ?? ''), field.maxDateOffset.days)
-                                                : field.max
-                                        }
+                                        max={maximum}
                                         step={
                                             field.decimalPlaces !== undefined
                                                 ? String(1 / 10 ** field.decimalPlaces)
@@ -160,6 +178,7 @@ export default function ResourceForm({ title, path, action, method, values, fiel
 
                                             if (field.type === 'date') {
                                                 form.setData(field.name, next);
+                                                form.clearErrors(field.name);
 
                                                 if (field.dateOffset) {
                                                     if (!next) {
@@ -185,12 +204,14 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                                 }
 
                                                 form.setData(field.name, next);
+                                                form.clearErrors(field.name);
                                                 return;
                                             }
 
                                             form.setData(field.name, field.type === 'number' && next !== '' ? Number(next) : next);
+                                            form.clearErrors(field.name);
                                         }}
-                                        className="bg-background rounded-md border px-3 py-2 text-sm"
+                                        className="bg-background w-full min-w-0 rounded-md border px-3 py-2 text-sm"
                                     />
                                 )}
                                 {field.disabled && <input type="hidden" name={field.name} value={String(value)} />}
@@ -199,6 +220,19 @@ export default function ResourceForm({ title, path, action, method, values, fiel
                                     <p className="text-muted-foreground text-sm">
                                         {field.emptyMessage ?? `No ${field.label.toLowerCase()} options are available.`}
                                     </p>
+                                )}
+                                {todayAction && !value && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            form.setData(field.name, todayAction.value);
+                                            form.clearErrors(field.name);
+                                        }}
+                                        disabled={todayActionDisabled}
+                                        className="text-primary w-fit text-sm underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {todayAction.label}
+                                    </button>
                                 )}
                                 {error && <p className="text-destructive text-sm">{error}</p>}
                             </div>

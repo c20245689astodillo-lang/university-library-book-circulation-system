@@ -11,9 +11,11 @@ type Student = {
 export default function StudentsIndex({
     students,
     currentStudentId,
+    filters,
 }: {
     students: Paginated<Student>;
     currentStudentId: number | null;
+    filters: { search?: string };
 }) {
     const columns: ResourceColumn<Student>[] = [
         { label: 'Student', render: (student) => `${student.student_name} (${student.student_number})` },
@@ -27,6 +29,7 @@ export default function StudentsIndex({
             path="/students"
             rows={students}
             columns={columns}
+            search={filters.search ?? ''}
             canEdit={(student) => student.id === currentStudentId}
         />
     );

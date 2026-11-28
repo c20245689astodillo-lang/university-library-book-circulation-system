@@ -7,6 +7,7 @@ use App\Http\Requests\StoreBookRequest;
 use App\Http\Requests\UpdateBookRequest;
 use App\Services\BookService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -16,19 +17,27 @@ class BookController extends Controller
     {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $books = $this->service->index();
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+        ]);
+        $search = isset($validated['search']) ? trim(strip_tags($validated['search'])) : null;
 
         return Inertia::render('books/index', [
-            'books' => $books,
+            'books' => $this->service->index($search),
+            'filters' => ['search' => $search ?? ''],
         ]);
     }
 
     public function create(): Response
     {
+        $bookCodeOptions = $this->service->nextAvailableBookCodes(5);
+
         return Inertia::render('books/form', [
             'publishers' => $this->service->publishers(),
+            'suggestedBookCode' => $bookCodeOptions[0],
+            'bookCodeOptions' => $bookCodeOptions,
         ]);
     }
 
